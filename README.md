@@ -11,8 +11,8 @@ Built against the Connected Care PRD v1.0 and API architecture note. The demo ru
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  PRESENTATION TIER  ·  apps/web  ·  React + Vite + Tailwind         │
-│  Dashboard · Safety Center (live yard map) · Pet detail ·           │
-│  Insights feed · Companion chat · Equipment health · Demo panel     │
+│  Dashboard · Safety Center (live yard map) · Pet detail (trends) ·  │
+│  Vet Report (digital sharing) · Insights · Chat · Equipment · Demo  │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │  HTTP JSON  +  SSE stream (/v1/…)
 ┌──────────────────────────────┴──────────────────────────────────────┐
@@ -100,6 +100,28 @@ Severity maps to five urgency tiers — `info · monitor · attention · urgent 
 weighted by documented breed risks (a Cavalier's heart-rate trend at age 9 scores higher than
 the same numbers on a young Labrador). Emergency is reserved for safety events: boundary
 breach with no motion routes to the dealer associate queue in parallel with the owner push.
+
+## The vet-sharing loop (closing the action step)
+
+When an insight says "schedule a vet visit," the customer can now actually bring the data.
+Every urgent/emergency health insight carries a **Share with vet** button that opens
+`/pets/{id}/vet-report` — a live digital report assembled by `GET /v1/pets/{id}/vet-report`:
+
+- A **professional summary written by the agent pipeline** (Claude, or the deterministic
+  template offline) under strict guardrails: device-data pattern summary, never a diagnosis,
+  every number grounded, no treatment suggestions, deviations stated against the pet's own
+  baseline in percent and sigma.
+- Active insights, all five 14-day trends with baseline bands and delta chips, the personal
+  baseline table, breed risk context, and containment status.
+- **Digital send**: "Send to my vet" records the share (`vet_shares` table, snapshot of the
+  active insight ids) and confirms it — share history shows on the report. Copy-summary and
+  mailto are secondary paths; browser print/PDF is tertiary. `PRODUCTION NOTE`: v2 connects
+  real vet portals; the demo records and confirms without external delivery.
+
+Supporting clarity features: every trend card shows **how today compares to baseline**
+("on baseline" / "+15% vs baseline", colored by severity), sparklines have hover detail,
+and the Insights page explains all five urgency levels in customer language
+("What we saw / What we do / What you should do").
 
 ## The Safety Center (containment, made visible)
 
