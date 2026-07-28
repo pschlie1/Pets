@@ -1,0 +1,288 @@
+import type { Insight, ScenarioKey } from '@connected-care/shared';
+import type { Db } from '../db/connection';
+import { uuid } from '../db/connection';
+import { REF } from '../db/seed';
+import { mulberry32, randInt } from '../db/seed/rng';
+import {
+  evaluateDevice,
+  evaluatePetMetric,
+  evaluateSafetyEvent,
+  type InsightListener,
+} from '../engine/pipeline';
+
+/**
+ * The six PRD showcase scenarios. Each injector clears the seeded telemetry it
+ * is about to overwrite, writes a crafted backdated sequence (plus environmental
+ * context where the story needs it), then runs the real scoring pipeline — the
+ * resulting insights are computed, not hardcoded. Demo reset restores seed state.
+ *
+ * Timing uses rolling 24h buckets relative to `now` (bucket 0 = last 24h),
+ * matching how the engine aggregates daily values.
+ */
+
+const DAY = 86_400_000;
+const HOUR = 3_600_000;
+
+interface RawEvent {
+  device_id: string;
+  pet_id: string | null;
+  device_type: string;
+  event_type: string;
+  occurred_at: number;
+  payload: Record<string, unknown>;
+}
+
+function insertRaw(db: Db, householdId: string, events: RawEvent[]): void {
+  const stmt = db.prepare(`
+    INSERT INTO telemetry_events (id, household_id, device_id, pet_id, device_type, event_type, payload, schema_version, occurred_at, received_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  `);
+  for (const e of events) {
+    const at = new Date(e.occurred_at).toISOString();
+    stmt.run(uuid(), householdId, e.device_id, e.pet_id, e.device_type, e.event_type, JSON.stringify(e.payload), at, at);
+  }
+}
+
+function clearWindow(db: Db, petId: string, eventType: string, now: number, days: number): void {
+  db.prepare(`DELETE FROM telemetry_events WHERE pet_id = ? AND event_type = ? AND occurred_at >= ?`).run(
+    petId,
+    eventType,
+    new Date(now - days * DAY).toISOString(),
+  );
+}
+
+function baselineFor(db: Db, petId: string, metric: string): { mean: number; stdev: number } {
+  return db.prepare(`SELECT mean, stdev FROM pet_baselines WHERE pet_id = ? AND metric = ?`).get(petId, metric) as {
+    mean: number;
+    stdev: number;
+  };
+}
+
+/** A timestamp inside rolling bucket `daysAgo` (2–22 hours back within the bucket). */
+function inBucket(rng: () => number, now: number, daysAgo: number): number {
+  return now - daysAgo * DAY - randInt(rng, 2, 22) * HOUR + randInt(rng, 0, 59) * 60_000;
+}
+
+type Injector = (db: Db, now: number, listener?: InsightListener) => Promise<Insight[]>;
+
+/** S1 — Info: Wrigley's water intake dips 5% below baseline on a cooler day. Logged only. */
+const infoWaterDip: Injector = async (db, now, listener) => {
+  const rng = mulberry32(101);
+  const base = baselineFor(db, REF.wrigley, 'water_intake_ml');
+  clearWindow(db, REF.wrigley, 'drinking_session', now, 3);
+  const events: RawEvent[] = [];
+  for (const daysAgo of [0, 1, 2]) {
+    const visits = 7;
+    for (let v = 0; v < visits; v++) {
+      events.push({
+        device_id: REF.fountain,
+        pet_id: REF.wrigley,
+        device_type: 'fountain',
+        event_type: 'drinking_session',
+        occurred_at: inBucket(rng, now, daysAgo),
+        payload: {
+          duration_seconds: randInt(rng, 15, 40),
+          estimated_volume_ml: Math.round((base.mean * 0.95) / visits),
+          flow_rate_ml_s: 9.1,
+        },
+      });
+    }
+  }
+  insertRaw(db, REF.householdId, events);
+  const insight = await evaluatePetMetric(db, REF.wrigley, 'water_intake_ml', now, listener, { persistInfo: true });
+  return insight ? [insight] : [];
+};
+
+/** S2 — Monitor: the feeder's scheduled dispense drifts 3+ minutes late twice in a week. */
+const monitorFeederDrift: Injector = async (db, now, listener) => {
+  const events: RawEvent[] = [2, 5].map((daysAgo) => {
+    const scheduled = now - daysAgo * DAY - 2 * HOUR;
+    const drift = daysAgo === 2 ? 4 : 3;
+    return {
+      device_id: REF.feeder,
+      pet_id: null,
+      device_type: 'feeder',
+      event_type: 'device_health_ping',
+      occurred_at: scheduled + drift * 60_000,
+      payload: {
+        check: 'scheduled_dispense',
+        scheduled_for: new Date(scheduled).toISOString(),
+        dispensed_at: new Date(scheduled + drift * 60_000).toISOString(),
+        drift_minutes: drift,
+      },
+    };
+  });
+  insertRaw(db, REF.householdId, events);
+  const insight = await evaluateDevice(db, REF.feeder, now, listener);
+  return insight ? [insight] : [];
+};
+
+/** S3 — Attention: both dogs' fountain visits drop together during a sub-10°F cold snap. */
+const attentionColdSnap: Injector = async (db, now, listener) => {
+  const rng = mulberry32(303);
+  // Inject the cold snap into environmental context for today and yesterday.
+  const envStmt = db.prepare(`
+    INSERT INTO environmental_context (id, location_zip, date, temperature_low_f, temperature_high_f, conditions)
+    VALUES (?, ?, ?, ?, ?, 'bitter cold snap')
+    ON CONFLICT (location_zip, date) DO UPDATE SET
+      temperature_low_f = excluded.temperature_low_f,
+      temperature_high_f = excluded.temperature_high_f,
+      conditions = excluded.conditions
+  `);
+  for (const daysAgo of [0, 1, 2]) {
+    envStmt.run(uuid(), REF.zip, new Date(now - daysAgo * DAY).toISOString().slice(0, 10), -2, 8);
+  }
+
+  // Both dogs at ~45% of their usual intake across the whole 3-day evaluation
+  // window — a shared, weather-shaped drop. Owning the full window keeps prior
+  // scenario state from skewing either dog.
+  for (const petId of [REF.baxter, REF.wrigley]) {
+    const base = baselineFor(db, petId, 'water_intake_ml');
+    clearWindow(db, petId, 'drinking_session', now, 3);
+    const events: RawEvent[] = [];
+    for (const daysAgo of [0, 1, 2]) {
+      const ratio = 0.45;
+      const visits = 4;
+      for (let v = 0; v < visits; v++) {
+        events.push({
+          device_id: REF.fountain,
+          pet_id: petId,
+          device_type: 'fountain',
+          event_type: 'drinking_session',
+          occurred_at: inBucket(rng, now, daysAgo),
+          payload: {
+            duration_seconds: randInt(rng, 10, 25),
+            estimated_volume_ml: Math.round((base.mean * ratio) / visits),
+            flow_rate_ml_s: 9.0,
+          },
+        });
+      }
+    }
+    insertRaw(db, REF.householdId, events);
+  }
+
+  const insights: Insight[] = [];
+  for (const petId of [REF.baxter, REF.wrigley]) {
+    const insight = await evaluatePetMetric(db, petId, 'water_intake_ml', now, listener);
+    if (insight) insights.push(insight);
+  }
+  return insights;
+};
+
+/** S4 — Attention: the fountain's flow rate declines ~30% over five days. Filter near end of life. */
+const attentionFountainFilter: Injector = async (db, now, listener) => {
+  const rng = mulberry32(404);
+  const events: RawEvent[] = [];
+  // Heavy sampling of degraded flow in the last 24h pulls the bucket average
+  // down ~30% against the 4-5 day-old readings.
+  for (let i = 0; i < 40; i++) {
+    events.push({
+      device_id: REF.fountain,
+      pet_id: rng() < 0.5 ? REF.baxter : REF.wrigley,
+      device_type: 'fountain',
+      event_type: 'drinking_session',
+      occurred_at: inBucket(rng, now, 0),
+      payload: {
+        duration_seconds: randInt(rng, 20, 55),
+        estimated_volume_ml: randInt(rng, 60, 100),
+        flow_rate_ml_s: Math.round((5.0 + rng() * 0.6) * 10) / 10,
+      },
+    });
+  }
+  insertRaw(db, REF.householdId, events);
+  const insight = await evaluateDevice(db, REF.fountain, now, listener);
+  return insight ? [insight] : [];
+};
+
+/** S5 — Urgent: Baxter's resting HR runs 15% above baseline for three days with shorter walks; Wrigley stays normal. */
+const urgentBaxterHeart: Injector = async (db, now, listener) => {
+  const rng = mulberry32(505);
+  const hrBase = baselineFor(db, REF.baxter, 'resting_heart_rate');
+  const elevated = hrBase.mean * 1.15;
+
+  clearWindow(db, REF.baxter, 'heart_rate_reading', now, 3);
+  clearWindow(db, REF.baxter, 'activity_session', now, 3);
+
+  const events: RawEvent[] = [];
+  for (const daysAgo of [0, 1, 2]) {
+    // Dense elevated resting readings own each bucket's average.
+    for (let r = 0; r < 48; r++) {
+      events.push({
+        device_id: REF.baxterCollar,
+        pet_id: REF.baxter,
+        device_type: 'containment_collar',
+        event_type: 'heart_rate_reading',
+        occurred_at: inBucket(rng, now, daysAgo),
+        payload: {
+          bpm: Math.round(elevated + (rng() - 0.5) * 4),
+          activity_state: 'resting',
+          boundary_status: 'inside',
+        },
+      });
+    }
+    // Walks shorter and slower than usual over the same stretch.
+    for (const hoursBack of [4, 14]) {
+      events.push({
+        device_id: REF.baxterCollar,
+        pet_id: REF.baxter,
+        device_type: 'containment_collar',
+        event_type: 'activity_session',
+        occurred_at: now - daysAgo * DAY - hoursBack * HOUR,
+        payload: { duration_minutes: randInt(rng, 20, 24), distance_m: randInt(rng, 800, 1000), avg_pace: 'slow' },
+      });
+    }
+  }
+  insertRaw(db, REF.householdId, events);
+
+  const insights: Insight[] = [];
+  const hr = await evaluatePetMetric(db, REF.baxter, 'resting_heart_rate', now, listener);
+  if (hr) insights.push(hr);
+  const walks = await evaluatePetMetric(db, REF.baxter, 'walk_minutes', now, listener);
+  if (walks) insights.push(walks);
+  return insights;
+};
+
+/** S6 — Emergency: Wrigley's collar reports a boundary breach with extended no-motion outside the safe zone. */
+const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
+  const payload = {
+    status: 'breach',
+    minutes_outside_zone: 22,
+    motion_detected: false,
+    last_known_position: { lat: 41.9214, lng: -87.6513 },
+  };
+  insertRaw(db, REF.householdId, [
+    {
+      device_id: REF.wrigleyCollar,
+      pet_id: REF.wrigley,
+      device_type: 'containment_collar',
+      event_type: 'boundary_event',
+      occurred_at: now - 22 * 60_000,
+      payload,
+    },
+  ]);
+  const insight = await evaluateSafetyEvent(
+    db,
+    { household_id: REF.householdId, device_id: REF.wrigleyCollar, pet_id: REF.wrigley, payload },
+    now,
+    listener,
+  );
+  return insight ? [insight] : [];
+};
+
+const INJECTORS: Record<ScenarioKey, Injector> = {
+  info_water_dip: infoWaterDip,
+  monitor_feeder_drift: monitorFeederDrift,
+  attention_cold_snap: attentionColdSnap,
+  attention_fountain_filter: attentionFountainFilter,
+  urgent_baxter_heart: urgentBaxterHeart,
+  emergency_boundary_breach: emergencyBoundaryBreach,
+};
+
+export async function triggerScenario(
+  db: Db,
+  key: ScenarioKey,
+  now: number = Date.now(),
+  listener?: InsightListener,
+): Promise<Insight[]> {
+  return INJECTORS[key](db, now, listener);
+}

@@ -164,7 +164,8 @@ export function drinkingSeries(
   for (let d = 0; d < opts.days; d++) {
     const temp = opts.dailyTempsF?.[d];
     const cold = temp !== undefined && temp < (opts.coldBelowF ?? 20);
-    const visits = cold ? randInt(rng, 3, 5) : randInt(rng, 6, 10);
+    // Pets are creatures of habit: visit count stays tight so a real change stands out.
+    const visits = cold ? randInt(rng, 4, 5) : randInt(rng, 7, 9);
     for (let v = 0; v < visits; v++) {
       const at = start + d * DAY + randInt(rng, 6, 21) * HOUR + randInt(rng, 0, 59) * 60_000;
       events.push({
@@ -174,7 +175,7 @@ export function drinkingSeries(
         occurred_at: iso(at),
         payload: {
           duration_seconds: randInt(rng, 15, 50),
-          estimated_volume_ml: Math.max(20, Math.round(mlBase + gaussian(rng, 0, 15))),
+          estimated_volume_ml: Math.max(20, Math.round(mlBase + gaussian(rng, 0, 8))),
           flow_rate_ml_s: Math.round((9 + gaussian(rng, 0, 0.5)) * 10) / 10,
         },
       });

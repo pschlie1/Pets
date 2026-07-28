@@ -11,7 +11,12 @@ interface EventRow {
   occurred_at: string;
 }
 
-export type DailySeries = Map<string, number>; // 'YYYY-MM-DD' -> value
+/**
+ * Keyed by rolling 24h bucket relative to evaluation time: 0 = the last 24h,
+ * 1 = the 24h before that. Rolling buckets (rather than calendar dates) mean
+ * an in-progress day never reads as an artificially low total.
+ */
+export type DailySeries = Map<number, number>;
 
 export const PET_METRICS = [
   'resting_heart_rate',
@@ -22,7 +27,13 @@ export const PET_METRICS = [
 ] as const;
 export type PetMetric = (typeof PET_METRICS)[number];
 
-export function dailyMetricSeries(db: Db, petId: string, metric: PetMetric, sinceIso: string): DailySeries {
+export function dailyMetricSeries(
+  db: Db,
+  petId: string,
+  metric: PetMetric,
+  sinceIso: string,
+  nowMs: number,
+): DailySeries {
   const eventType = {
     resting_heart_rate: 'heart_rate_reading',
     walk_minutes: 'activity_session',
@@ -40,7 +51,8 @@ export function dailyMetricSeries(db: Db, petId: string, metric: PetMetric, sinc
 
   // Averaged metrics accumulate {sum, count}; summed metrics accumulate totals.
   const averaged = metric === 'resting_heart_rate' || metric === 'sleep_hours';
-  const acc = new Map<string, { sum: number; count: number }>();
+  const acc = new Map<number, { sum: number; count: number }>();
+  const DAY = 86_400_000;
 
   for (const row of rows) {
     const payload = JSON.parse(row.payload) as Record<string, unknown>;
@@ -63,7 +75,7 @@ export function dailyMetricSeries(db: Db, petId: string, metric: PetMetric, sinc
         break;
     }
     if (value === null) continue;
-    const day = row.occurred_at.slice(0, 10);
+    const day = Math.max(Math.floor((nowMs - Date.parse(row.occurred_at)) / DAY), 0);
     const entry = acc.get(day) ?? { sum: 0, count: 0 };
     entry.sum += value;
     entry.count += 1;

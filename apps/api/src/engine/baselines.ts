@@ -24,7 +24,7 @@ export function recomputeBaselines(db: Db, petId: string, now: number = Date.now
   `);
 
   for (const metric of PET_METRICS) {
-    const series = dailyMetricSeries(db, petId, metric, sinceIso);
+    const series = dailyMetricSeries(db, petId, metric, sinceIso, now);
     const values = [...series.values()];
     if (values.length === 0) continue;
     const { mean, stdev } = meanStdev(values);
