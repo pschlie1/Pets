@@ -45,3 +45,16 @@ body {
   color: var(--color-charcoal);
   font-family: var(--font-sans);
 }
+
+/* The vet report prints as a clean digital document: white page, and the
+   baseline bands / badges keep their brand colors. */
+@media print {
+  body {
+    background: #fff;
+  }
+  .vet-report {
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

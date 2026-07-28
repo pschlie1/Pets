@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { URGENCY_TIERS, urgencyRank, type Urgency } from '@connected-care/shared';
 import { useHousehold } from '../state/HouseholdContext';
 import { InsightCard } from '../components/InsightCard';
+import { TierExplainer } from '../components/TierExplainer';
 import { UrgencyBadge } from '../components/UrgencyBadge';
 
 const PAGE_SIZE = 8;
@@ -24,6 +25,8 @@ export function Insights() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold">Insights</h1>
+
+      <TierExplainer />
 
       <div className="flex flex-wrap items-center gap-2">
         <button

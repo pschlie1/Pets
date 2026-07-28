@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { Insight } from '@connected-care/shared';
 import { api } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
@@ -21,7 +22,14 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
     >
       <div className="flex flex-wrap items-center gap-2">
         <UrgencyBadge urgency={insight.urgency} />
-        {petName && <span className="text-sm font-bold">{petName}</span>}
+        {petName &&
+          (insight.pet_id ? (
+            <Link to={`/pets/${insight.pet_id}`} className="text-sm font-bold hover:underline">
+              {petName}
+            </Link>
+          ) : (
+            <span className="text-sm font-bold">{petName}</span>
+          ))}
         <span className="text-xs text-gray-500 capitalize">{insight.insight_type.replace('_', ' ')}</span>
         {Boolean(insight.routed_to_associate) && (
           <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-charcoal px-2.5 py-0.5 text-xs font-bold text-brand">
@@ -34,9 +42,19 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
         <span aria-hidden>👉 </span>
         {insight.recommended_action}
       </p>
-      <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-400">
         <time>{new Date(insight.generated_at).toLocaleString()}</time>
         <span className="capitalize">· {insight.acknowledged_status}</span>
+        {insight.insight_type === 'pet_health' &&
+          (insight.urgency === 'urgent' || insight.urgency === 'emergency') &&
+          insight.pet_id && (
+            <Link
+              to={`/pets/${insight.pet_id}/vet-report`}
+              className="rounded-full bg-brand px-3 py-1 font-bold text-charcoal hover:bg-brand-dark"
+            >
+              📤 Share with vet
+            </Link>
+          )}
         {!resolved && (
           <span className="ml-auto flex gap-2">
             <button
