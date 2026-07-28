@@ -15,6 +15,21 @@ beforeAll(() => {
   app = buildApp(db).app;
 });
 
+describe('api documentation', () => {
+  it('serves interactive docs without auth', async () => {
+    const res = await request(app).get('/docs');
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/swagger-ui/);
+  });
+
+  it('serves the OpenAPI spec', async () => {
+    const res = await request(app).get('/docs/openapi.yaml');
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/openapi: 3\.1/);
+    expect(res.text).toMatch(/\/v1\/telemetry\/events/);
+  });
+});
+
 describe('auth', () => {
   it('rejects requests without a bearer token', async () => {
     const res = await request(app).get(`/v1/households/${REF.householdId}`);

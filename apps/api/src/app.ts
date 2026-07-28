@@ -5,6 +5,7 @@ import { errorHandler } from './middleware/errors';
 import { agentRoutes } from './routes/agent';
 import { breedRoutes } from './routes/breeds';
 import { containmentRoutes } from './routes/containment';
+import { docsRoutes } from './routes/docs';
 import { demoRoutes } from './routes/demo';
 import { householdRoutes } from './routes/households';
 import { insightRoutes } from './routes/insights';
@@ -26,6 +27,9 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
   app.get('/v1/health', (_req, res) => {
     res.json({ data: { status: 'ok', tier: 'api', demo: true } });
   });
+
+  // Interactive API docs — public, like the docs of any real API.
+  app.use(docsRoutes());
 
   // SSE stream: EventSource cannot set an Authorization header, so the
   // stream endpoint sits outside the bearer check (demo-acceptable; a
