@@ -1,3 +1,9 @@
+import {
+  BOUNDARY_CHECK_INTERVAL_MIN,
+  pointInPolygon,
+  type LatLng,
+  type YardGeometry,
+} from '@connected-care/shared';
 import { gaussian, randInt, type Rng } from './rng';
 
 export interface GeneratedEvent {
@@ -204,6 +210,52 @@ export function deviceHealthSeries(
         battery_pct: Math.max(5, Math.round(startPct - d * drain + gaussian(rng, 0, 0.5))),
         signal_strength: randInt(rng, 3, 5),
         firmware: '2.4.1',
+      },
+    });
+  }
+  return events;
+}
+
+/**
+ * One GPS wander step: small gaussian move (~3-6 m), clamped back toward the
+ * yard center whenever the step would leave the boundary polygon (clamp, not
+ * a rejection loop — cannot spin). ~0.00004° ≈ 4.4 m of latitude.
+ */
+export function nextWanderPoint(rng: Rng, prev: LatLng, yard: YardGeometry): LatLng {
+  const step = 0.00004;
+  const next: LatLng = {
+    lat: prev.lat + gaussian(rng, 0, step),
+    lng: prev.lng + gaussian(rng, 0, step * 1.35),
+  };
+  if (!pointInPolygon(next, yard.polygon)) {
+    return {
+      lat: prev.lat + (yard.center.lat - prev.lat) * 0.5,
+      lng: prev.lng + (yard.center.lng - prev.lng) * 0.5,
+    };
+  }
+  return next;
+}
+
+/** Collar GPS check-ins every 15 minutes, wandering inside the yard boundary. */
+export function boundaryCheckSeries(
+  rng: Rng,
+  opts: { deviceId: string; petId: string; days: number; endMs: number; yard: YardGeometry },
+): GeneratedEvent[] {
+  const events: GeneratedEvent[] = [];
+  const start = opts.endMs - opts.days * DAY;
+  let pos: LatLng = { ...opts.yard.center };
+  for (let t = start; t < opts.endMs; t += BOUNDARY_CHECK_INTERVAL_MIN * 60_000) {
+    pos = nextWanderPoint(rng, pos, opts.yard);
+    events.push({
+      device_id: opts.deviceId,
+      pet_id: opts.petId,
+      event_type: 'boundary_check',
+      occurred_at: iso(t),
+      payload: {
+        lat: Math.round(pos.lat * 1e6) / 1e6,
+        lng: Math.round(pos.lng * 1e6) / 1e6,
+        boundary_status: 'inside',
+        gps_accuracy_m: randInt(rng, 2, 6),
       },
     });
   }

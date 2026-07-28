@@ -2,8 +2,10 @@ import type { Db } from '../connection';
 import { uuid } from '../connection';
 import { seedBreedProfiles, BREED_IDS } from './breeds';
 import { mulberry32 } from './rng';
+import { YARD_GEOMETRIES } from '@connected-care/shared';
 import {
   activitySeries,
+  boundaryCheckSeries,
   chicagoSummerTemps,
   deviceHealthSeries,
   drinkingSeries,
@@ -136,6 +138,8 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       ...feedingSeries(rng, { deviceId: REF.feeder, petIds: [REF.baxter, REF.wrigley], days: SEED_DAYS, endMs: now }),
       ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.baxter, days: SEED_DAYS, endMs: now, dailyTempsF: tempHighs }),
       ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.wrigley, days: SEED_DAYS, endMs: now, mlPerVisit: 78, dailyTempsF: tempHighs }),
+      ...boundaryCheckSeries(rng, { deviceId: REF.baxterCollar, petId: REF.baxter, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
+      ...boundaryCheckSeries(rng, { deviceId: REF.wrigleyCollar, petId: REF.wrigley, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
       ...deviceHealthSeries(rng, { deviceId: REF.baxterCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 98 }),
       ...deviceHealthSeries(rng, { deviceId: REF.wrigleyCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 96 }),
       ...deviceHealthSeries(rng, { deviceId: REF.fountain, days: SEED_DAYS, endMs: now, startBatteryPct: 100, drainPerDay: 0 }),
