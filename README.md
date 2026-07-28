@@ -52,6 +52,15 @@ npm test           # scoring-engine unit tests + full-stack API integration test
 npm run seed       # re-seed the database from the CLI
 ```
 
+### API documentation
+
+- **Interactive docs**: [`http://localhost:3001/docs`](http://localhost:3001/docs) — Swagger UI
+  ("Try it out" works live), served by the API itself from a vendored bundle, fully offline.
+- **OpenAPI 3.1 spec**: [`docs/openapi.yaml`](docs/openapi.yaml) — the machine-readable source
+  of truth; import into Postman/Insomnia or feed a code generator.
+- **Developer quick-start**: [`docs/API.md`](docs/API.md) — auth, envelopes, enums, and a
+  copy-paste curl walkthrough of the core loop including the SSE stream.
+
 ### Live Claude agents (optional)
 
 ```bash
