@@ -77,8 +77,10 @@ export function vetSummaryTemplate(input: VetSummaryInput): string {
   if (deviating.length > 0) {
     for (const d of deviating) {
       const dir = d.latest >= d.mean ? 'above' : 'below';
+      const name = label(d.metric);
+      const round = (v: number) => Math.round(v * 10) / 10;
       sentences.push(
-        `Daily ${label(d.metric)} is currently ${d.latest} against a personal baseline of ${d.mean} (±${d.stdev}), ` +
+        `${name.charAt(0).toUpperCase()}${name.slice(1)} is currently ${round(d.latest)} against a personal baseline of ${round(d.mean)} (±${round(d.stdev)}), ` +
           `${Math.abs(d.pct)}% ${dir} baseline (${d.sigma.toFixed(1)} standard deviations).`,
       );
     }

@@ -8,6 +8,7 @@ import { Equipment } from './pages/Equipment';
 import { Insights } from './pages/Insights';
 import { PetDetail } from './pages/PetDetail';
 import { SafetyCenter } from './pages/SafetyCenter';
+import { VetReport } from './pages/VetReport';
 import { HouseholdProvider, useHousehold } from './state/HouseholdContext';
 
 function Nav() {
@@ -20,7 +21,7 @@ function Nav() {
     }`;
 
   return (
-    <nav className="mx-auto flex max-w-4xl items-center gap-1 overflow-x-auto px-4 py-3">
+    <nav className="mx-auto flex max-w-4xl items-center gap-1 overflow-x-auto px-4 py-3 print:hidden">
       <NavLink to="/" className="mr-2 flex shrink-0 items-center gap-2 text-lg font-extrabold sm:mr-3">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-lg shadow-sm" aria-hidden>
           🐾
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="/insights" element={<Insights />} />
               <Route path="/equipment" element={<Equipment />} />
               <Route path="/pets/:petId" element={<PetDetail />} />
+              <Route path="/pets/:petId/vet-report" element={<VetReport />} />
               <Route path="/pets/:petId/chat" element={<Chat />} />
               <Route path="/demo" element={<DemoPanel />} />
             </Routes>

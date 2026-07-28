@@ -1,4 +1,12 @@
-import type { AgentReply, ApiErrorBody, ContainmentStatus, Insight, ScenarioMeta } from '@connected-care/shared';
+import type {
+  AgentReply,
+  ApiErrorBody,
+  ContainmentStatus,
+  Insight,
+  ScenarioMeta,
+  VetReport,
+  VetShare,
+} from '@connected-care/shared';
 
 const TOKEN = 'demo-token';
 
@@ -93,6 +101,9 @@ export const api = {
   },
   acknowledgeInsight: (id: string) => request<Insight>(`/v1/insights/${id}/acknowledge`, { method: 'POST' }),
   dismissInsight: (id: string) => request<Insight>(`/v1/insights/${id}/dismiss`, { method: 'POST' }),
+  getVetReport: (petId: string) => request<VetReport>(`/v1/pets/${petId}/vet-report`),
+  shareVetReport: (petId: string, body: { recipient: string; method: 'portal' | 'email' | 'link' }) =>
+    request<VetShare>(`/v1/pets/${petId}/vet-report/share`, { method: 'POST', body: JSON.stringify(body) }),
   askAgent: (petId: string, question: string) =>
     request<AgentReply>('/v1/agent/query', { method: 'POST', body: JSON.stringify({ pet_id: petId, question }) }),
   getScenarios: () => request<ScenarioMeta[]>('/v1/demo/scenarios'),

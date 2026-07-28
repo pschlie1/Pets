@@ -49,7 +49,15 @@ export function computeDeltas(metrics: VetReportMetricSeries[]): Delta[] {
     const { mean, stdev, status } = m.baseline;
     const sigma = stdev > 0 ? Math.abs(latest.value - mean) / stdev : 0;
     const pct = mean !== 0 ? Math.round(((latest.value - mean) / mean) * 100) : 0;
-    deltas.push({ metric: m.metric, latest: latest.value, mean, stdev, sigma, pct, status });
+    deltas.push({
+      metric: m.metric,
+      latest: latest.value,
+      mean: Math.round(mean * 10) / 10,
+      stdev: Math.round(stdev * 10) / 10,
+      sigma,
+      pct,
+      status,
+    });
   }
   return deltas;
 }
