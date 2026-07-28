@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+@import '@fontsource/nunito/400.css';
+@import '@fontsource/nunito/600.css';
+@import '@fontsource/nunito/700.css';
+@import '@fontsource/nunito/800.css';
+
+/* PetSafe brand tokens — the whole brand lives in this block. */
+@theme {
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand: #ffc72c; /* PetSafe yellow */
+  --color-brand-dark: #eab308;
+  --color-charcoal: #2b2b2b;
+  --color-cream: #fbf8f3;
+  --color-card: #ffffff;
+
+  /* Urgency tier status colors — reserved, never reused for series. */
+  --color-tier-info: #6b7280;
+  --color-tier-monitor: #0369a1;
+  --color-tier-attention: #b45309;
+  --color-tier-urgent: #c2410c;
+  --color-tier-emergency: #dc2626;
+
+  --radius-2xl: 1.25rem;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+}

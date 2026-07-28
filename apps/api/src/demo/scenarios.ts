@@ -228,7 +228,7 @@ const urgentBaxterHeart: Injector = async (db, now, listener) => {
         device_type: 'containment_collar',
         event_type: 'activity_session',
         occurred_at: now - daysAgo * DAY - hoursBack * HOUR,
-        payload: { duration_minutes: randInt(rng, 20, 24), distance_m: randInt(rng, 800, 1000), avg_pace: 'slow' },
+        payload: { duration_minutes: randInt(rng, 25, 26), distance_m: randInt(rng, 950, 1100), avg_pace: 'slow' },
       });
     }
   }

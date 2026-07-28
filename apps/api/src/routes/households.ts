@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createHouseholdSchema, createPetSchema, linkDeviceSchema, patchPetSchema } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { uuid } from '../db/connection';
+import { dailyMetricSeries, PET_METRICS, type PetMetric } from '../engine/aggregates';
 import { ApiError } from '../middleware/errors';
 import { validate } from '../middleware/validate';
 
@@ -114,6 +115,24 @@ export function householdRoutes(db: Db): Router {
       req.params.id,
     );
     res.status(201).json({ data: { device_id: req.body.device_id, pet_id: req.params.id, linked: true } });
+  });
+
+  // Daily metric series for trend sparklines: rolling 24h buckets, oldest first.
+  r.get('/pets/:id/metrics', (req, res) => {
+    const metric = req.query.metric as PetMetric;
+    if (!(PET_METRICS as readonly string[]).includes(metric)) {
+      throw new ApiError(400, 'validation_error', `metric must be one of: ${PET_METRICS.join(', ')}`);
+    }
+    const days = Math.min(Math.max(parseInt((req.query.days as string) ?? '14', 10) || 14, 1), 30);
+    const now = Date.now();
+    const series = dailyMetricSeries(db, req.params.id, metric, new Date(now - days * 86_400_000).toISOString(), now);
+    const baseline = db
+      .prepare(`SELECT mean, stdev, status FROM pet_baselines WHERE pet_id = ? AND metric = ?`)
+      .get(req.params.id, metric);
+    const points = [...series.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([daysAgo, value]) => ({ days_ago: daysAgo, value: Math.round(value * 10) / 10 }));
+    res.json({ data: { metric, points, baseline: baseline ?? null } });
   });
 
   r.get('/pets/:id/baseline', (req, res) => {
