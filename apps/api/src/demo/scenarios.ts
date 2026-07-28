@@ -4,6 +4,7 @@ import { uuid } from '../db/connection';
 import { REF } from '../db/seed';
 import { mulberry32, randInt } from '../db/seed/rng';
 import {
+  evaluateCollarSignal,
   evaluateDevice,
   evaluatePetMetric,
   evaluateSafetyEvent,
@@ -48,6 +49,15 @@ function clearWindow(db: Db, petId: string, eventType: string, now: number, days
     petId,
     eventType,
     new Date(now - days * DAY).toISOString(),
+  );
+}
+
+/** Device-scoped variant: a device outage silences the device, not the pet. */
+function clearDeviceWindow(db: Db, deviceId: string, eventType: string, now: number, hours: number): void {
+  db.prepare(`DELETE FROM telemetry_events WHERE device_id = ? AND event_type = ? AND occurred_at >= ?`).run(
+    deviceId,
+    eventType,
+    new Date(now - hours * HOUR).toISOString(),
   );
 }
 
@@ -242,8 +252,80 @@ const urgentBaxterHeart: Injector = async (db, now, listener) => {
   return insights;
 };
 
+/** S7 — Monitor: Baxter steps past the boundary but keeps moving and returns on his own. */
+const breachSafeReturn: Injector = async (db, now, listener) => {
+  // The breach must be the newest containment event while it lasts, and the
+  // return the newest after it — clear the collar's recent check-ins.
+  clearDeviceWindow(db, REF.baxterCollar, 'boundary_check', now, 2);
+
+  const breachPayload = {
+    status: 'breach',
+    minutes_outside_zone: 0,
+    motion_detected: true,
+    last_known_position: { lat: 41.9209, lng: -87.65195 }, // just past the east fence line
+  };
+  const returnPayload = {
+    status: 'return_to_zone',
+    minutes_outside_zone: 7,
+    motion_detected: true,
+    position: { lat: 41.92078, lng: -87.65245 }, // back inside
+  };
+  insertRaw(db, REF.householdId, [
+    {
+      device_id: REF.baxterCollar,
+      pet_id: REF.baxter,
+      device_type: 'containment_collar',
+      event_type: 'boundary_event',
+      occurred_at: now - 9 * 60_000,
+      payload: breachPayload,
+    },
+    {
+      device_id: REF.baxterCollar,
+      pet_id: REF.baxter,
+      device_type: 'containment_collar',
+      event_type: 'boundary_event',
+      occurred_at: now - 2 * 60_000,
+      payload: returnPayload,
+    },
+  ]);
+  // Evaluate only the return: the story is one calm note, not an alarm that
+  // gets walked back.
+  const insight = await evaluateSafetyEvent(
+    db,
+    { household_id: REF.householdId, device_id: REF.baxterCollar, pet_id: REF.baxter, payload: returnPayload },
+    now,
+    listener,
+  );
+  return insight ? [insight] : [];
+};
+
+/** S8 — Attention: Wrigley's collar goes silent; containment can no longer be verified. */
+const collarSignalLost: Injector = async (db, now, listener) => {
+  clearDeviceWindow(db, REF.wrigleyCollar, 'boundary_check', now, 2);
+  const insight = await evaluateCollarSignal(db, REF.wrigleyCollar, now, listener);
+  return insight ? [insight] : [];
+};
+
+/** S9 — Urgent: Baxter's collar battery drains to 12% — a containment safety gap. */
+const collarBatteryCritical: Injector = async (db, now, listener) => {
+  insertRaw(db, REF.householdId, [
+    {
+      device_id: REF.baxterCollar,
+      pet_id: null,
+      device_type: 'containment_collar',
+      event_type: 'device_health_ping',
+      occurred_at: now - 5 * 60_000, // strictly the newest health ping
+      payload: { check: 'daily_status', battery_pct: 12, signal_strength: 4, firmware: '2.4.1' },
+    },
+  ]);
+  const insight = await evaluateDevice(db, REF.baxterCollar, now, listener);
+  return insight ? [insight] : [];
+};
+
 /** S6 — Emergency: Wrigley's collar reports a boundary breach with extended no-motion outside the safe zone. */
 const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
+  // Guarantee the breach is the newest containment event regardless of uptime.
+  clearDeviceWindow(db, REF.wrigleyCollar, 'boundary_check', now, 2);
   const payload = {
     status: 'breach',
     minutes_outside_zone: 22,
@@ -275,6 +357,9 @@ const INJECTORS: Record<ScenarioKey, Injector> = {
   attention_cold_snap: attentionColdSnap,
   attention_fountain_filter: attentionFountainFilter,
   urgent_baxter_heart: urgentBaxterHeart,
+  breach_safe_return: breachSafeReturn,
+  collar_signal_lost: collarSignalLost,
+  collar_battery_critical: collarBatteryCritical,
   emergency_boundary_breach: emergencyBoundaryBreach,
 };
 
