@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type PetDetailData } from '../api/client';
 
 interface Message {
@@ -10,6 +10,7 @@ interface Message {
 
 const SUGGESTED = [
   (name: string) => `How is ${name} doing?`,
+  (name: string) => `Is the fence keeping ${name} safe?`,
   (name: string) => `How is ${name}'s heart rate trending?`,
   (name: string) => `Is ${name} drinking enough water?`,
   (name: string) => `How are ${name}'s walks lately?`,
@@ -53,6 +54,9 @@ export function Chat() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-11rem)] max-w-2xl flex-col">
+      <Link to={`/pets/${pet.id}`} className="mb-2 inline-block text-sm font-bold text-gray-400 hover:text-charcoal">
+        ← Back to {pet.name}
+      </Link>
       <header className="flex items-center gap-3 rounded-t-2xl bg-card p-4 shadow-sm">
         <span className="grid h-10 w-10 place-items-center rounded-full bg-brand text-xl" aria-hidden>
           {pet.species === 'dog' ? '🐶' : '🐱'}

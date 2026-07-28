@@ -11,32 +11,41 @@ const BANNER: Partial<Record<Urgency, { bg: string; msg: string }>> = {
 };
 
 export function Dashboard() {
-  const { household, insights } = useHousehold();
+  const { household, insights, containment } = useHousehold();
   if (!household) return <p className="p-8 text-gray-400">Fetching the household…</p>;
 
   const active = insights.filter((i) => i.acknowledged_status === 'unseen' || i.acknowledged_status === 'seen');
-  const worst = active.reduce<Urgency>((w, i) => (urgencyRank(i.urgency) > urgencyRank(w) ? i.urgency : w), 'info');
-  const banner = BANNER[worst];
+  // The containment strip owns the safety story — the health banner only
+  // speaks for health and equipment, so one event never yells twice.
+  const healthWorst = active
+    .filter((i) => i.insight_type !== 'pet_safety')
+    .reduce<Urgency>((w, i) => (urgencyRank(i.urgency) > urgencyRank(w) ? i.urgency : w), 'info');
+  const banner = BANNER[healthWorst];
+  const allCalm = !banner && containment?.overall === 'all_safe';
   const latest = active.slice(0, 3);
   const petName = (id: string | null) => household.pets.find((p) => p.id === id)?.name;
 
   return (
     <div className="space-y-6">
-      {banner ? (
+      {banner && (
         <Link to="/insights" className={`block rounded-2xl p-4 text-white shadow-md ${banner.bg}`}>
           <p className="text-lg font-extrabold">🚨 {banner.msg}</p>
           <p className="text-sm opacity-90">Tap to see what we found and what to do about it.</p>
         </Link>
-      ) : (
-        <div className="rounded-2xl bg-card p-4 shadow-sm ring-2 ring-emerald-100">
-          <p className="text-lg font-extrabold">💚 The whole crew is doing great</p>
-          <p className="text-sm text-gray-500">
-            We're watching heart rate, walks, meals, water, and the yard boundary — and we'll speak up first.
-          </p>
-        </div>
       )}
 
-      <ContainmentStrip />
+      {allCalm ? (
+        // One combined reassurance card instead of two green cards in a row.
+        <Link to="/safety" className="block rounded-2xl bg-card p-4 shadow-sm ring-2 ring-emerald-100 transition hover:shadow-md">
+          <p className="text-lg font-extrabold">💚 The whole crew is doing great</p>
+          <p className="text-sm text-gray-500">
+            Everyone's healthy and inside the safe zone — heart rate, walks, meals, water, and the invisible fence are
+            all being watched, and we'll speak up first. 🛡️
+          </p>
+        </Link>
+      ) : (
+        <ContainmentStrip />
+      )}
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Your pets</h2>
@@ -70,9 +79,10 @@ export function Dashboard() {
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Equipment</h2>
-        <Link to="/equipment" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {household.devices.map((d) => (
-            <span
+            <Link
+              to="/equipment"
               key={d.id}
               className={`rounded-2xl bg-card p-4 text-sm shadow-sm transition hover:shadow-md ${
                 d.status !== 'active' ? 'ring-2 ring-amber-300' : ''
@@ -85,9 +95,9 @@ export function Dashboard() {
               <span className={`text-xs ${d.status === 'active' ? 'text-emerald-600' : 'text-tier-attention'}`}>
                 {d.status === 'active' ? '● Online' : `● ${d.status.replace('_', ' ')}`}
               </span>
-            </span>
+            </Link>
           ))}
-        </Link>
+        </div>
       </section>
     </div>
   );

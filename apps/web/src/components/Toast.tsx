@@ -17,7 +17,7 @@ export function Toast() {
 
   return (
     <Link
-      to="/insights"
+      to={toast.insight_type === 'pet_safety' ? '/safety' : '/insights'}
       onClick={clearToast}
       className="fixed bottom-6 right-6 z-50 w-96 max-w-[90vw] rounded-2xl border border-black/10 bg-card p-4 shadow-xl transition hover:shadow-2xl"
     >

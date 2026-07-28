@@ -34,6 +34,9 @@ export function PetDetail() {
 
   return (
     <div className="space-y-6">
+      <Link to="/" className="inline-block text-sm font-bold text-gray-400 hover:text-charcoal">
+        ← Home
+      </Link>
       <header className="flex flex-wrap items-center gap-4 rounded-2xl bg-card p-5 shadow-sm">
         <div className="grid h-20 w-20 place-items-center rounded-full bg-brand text-4xl" aria-hidden>
           {pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}
