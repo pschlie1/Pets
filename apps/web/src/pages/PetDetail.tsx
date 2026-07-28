@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type MetricSeries, type PetDetailData } from '../api/client';
 import { InsightCard } from '../components/InsightCard';
-import { Sparkline } from '../components/Sparkline';
+import { TrendCard } from '../components/TrendCard';
+import { TREND_METRICS } from '../metrics';
 import { useHousehold } from '../state/HouseholdContext';
-
-const TREND_METRICS = [
-  { metric: 'resting_heart_rate', label: 'Resting heart rate', unit: 'bpm' },
-  { metric: 'water_intake_ml', label: 'Water intake', unit: 'ml/day' },
-  { metric: 'walk_minutes', label: 'Walk time', unit: 'min/day' },
-] as const;
 
 export function PetDetail() {
   const { petId } = useParams<{ petId: string }>();
@@ -49,38 +44,30 @@ export function PetDetail() {
             {pet.weight_lbs && ` · ${pet.weight_lbs} lbs`}
           </p>
         </div>
-        <Link
-          to={`/pets/${pet.id}/chat`}
-          className="ml-auto rounded-full bg-brand px-5 py-2.5 font-extrabold text-charcoal shadow-sm hover:bg-brand-dark"
-        >
-          💬 Ask about {pet.name}
-        </Link>
+        <span className="ml-auto flex flex-wrap gap-2">
+          <Link
+            to={`/pets/${pet.id}/vet-report`}
+            className="rounded-full border border-black/10 bg-card px-4 py-2.5 text-sm font-extrabold hover:bg-cream"
+          >
+            📋 Vet report
+          </Link>
+          <Link
+            to={`/pets/${pet.id}/chat`}
+            className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-charcoal shadow-sm hover:bg-brand-dark"
+          >
+            💬 Ask about {pet.name}
+          </Link>
+        </span>
       </header>
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">
           14-day trends <span className="normal-case font-semibold">(yellow band = {pet.name}'s own normal range)</span>
         </h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {TREND_METRICS.map((t) => {
-            const s = series[t.metric];
-            const latest = s?.points[s.points.length - 1];
-            return (
-              <div key={t.metric} className="rounded-2xl bg-card p-4 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{t.label}</p>
-                <p className="text-2xl font-extrabold">
-                  {latest ? latest.value : '—'} <span className="text-sm font-semibold text-gray-400">{t.unit}</span>
-                </p>
-                {s && <Sparkline points={s.points} baseline={s.baseline} />}
-                {s?.baseline && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    baseline {Math.round(s.baseline.mean)} {t.unit}
-                    {s.baseline.status === 'insufficient_data' && ' · still learning'}
-                  </p>
-                )}
-              </div>
-            );
-          })}
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {TREND_METRICS.map((t) => (
+            <TrendCard key={t.metric} label={t.label} unit={t.unit} series={series[t.metric] ?? null} />
+          ))}
         </div>
       </section>
 
