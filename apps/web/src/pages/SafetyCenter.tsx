@@ -5,9 +5,9 @@ import { YardMap } from '../components/YardMap';
 import { InsightCard } from '../components/InsightCard';
 
 const STATE_BADGE: Record<ContainmentPetStatus['containment_state'], { text: string; cls: string; icon: string }> = {
-  protected: { text: 'Protected', cls: 'bg-emerald-50 text-emerald-700', icon: '🛡️' },
-  breach: { text: 'Outside safe zone', cls: 'bg-red-50 text-tier-emergency', icon: '⛔' },
-  signal_lost: { text: 'Signal lost', cls: 'bg-amber-50 text-tier-attention', icon: '📡' },
+  protected: { text: 'Protected', cls: 'bg-safe-soft text-safe', icon: '🛡️' },
+  breach: { text: 'Outside safe zone', cls: 'bg-tier-emergency-soft text-tier-emergency', icon: '⛔' },
+  signal_lost: { text: 'Signal lost', cls: 'bg-tier-attention-soft text-tier-attention', icon: '📡' },
 };
 
 function SignalBars({ strength }: { strength: number | null }) {
@@ -33,9 +33,9 @@ function ContainmentCard({ pet }: { pet: ContainmentPetStatus }) {
     <div
       className={`rounded-2xl bg-card p-5 shadow-sm ${
         pet.containment_state === 'breach'
-          ? 'ring-2 ring-red-300'
+          ? 'ring-2 ring-tier-emergency/40'
           : pet.containment_state === 'signal_lost'
-            ? 'ring-2 ring-amber-300'
+            ? 'ring-2 ring-tier-attention/50'
             : ''
       }`}
     >

@@ -5,11 +5,11 @@ import type { PetSummary } from '../api/client';
 import { UrgencyBadge } from './UrgencyBadge';
 
 const RING: Record<Urgency, string> = {
-  info: 'ring-emerald-300',
-  monitor: 'ring-sky-300',
-  attention: 'ring-amber-400',
-  urgent: 'ring-orange-500',
-  emergency: 'ring-red-500',
+  info: 'ring-safe/40',
+  monitor: 'ring-tier-monitor/35',
+  attention: 'ring-tier-attention/50',
+  urgent: 'ring-tier-urgent/70',
+  emergency: 'ring-tier-emergency/80',
 };
 
 function worstActive(insights: Insight[]): Urgency | null {
@@ -30,7 +30,7 @@ export function PetCard({ pet, insights }: { pet: PetSummary; insights: Insight[
   return (
     <Link
       to={`/pets/${pet.id}`}
-      className={`block rounded-2xl bg-card p-5 shadow-sm ring-4 transition hover:shadow-md ${worst ? RING[worst] : 'ring-emerald-200'}`}
+      className={`block rounded-2xl bg-card p-5 shadow-sm ring-4 transition hover:shadow-md ${worst ? RING[worst] : 'ring-safe/25'}`}
     >
       <div className="flex items-center gap-4">
         <div className="grid h-16 w-16 place-items-center rounded-full bg-brand text-3xl" aria-hidden>
@@ -46,7 +46,7 @@ export function PetCard({ pet, insights }: { pet: PetSummary; insights: Insight[
           {worst ? (
             <UrgencyBadge urgency={worst} />
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-safe-soft px-2.5 py-0.5 text-xs font-bold text-safe">
               💚 All good
             </span>
           )}

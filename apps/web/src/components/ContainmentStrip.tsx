@@ -14,7 +14,7 @@ export function ContainmentStrip() {
   const silent = containment.pets.filter((p) => p.containment_state === 'signal_lost');
   const lowBattery = containment.pets.filter((p) => (p.battery_pct ?? 100) <= 20);
 
-  let tone = 'ring-2 ring-emerald-200 bg-card';
+  let tone = 'ring-2 ring-safe/30 bg-card';
   let icon = '🛡️';
   let title = `Containment active — ${containment.pets.map((p) => p.name).join(' & ')} ${
     containment.pets.length === 1 ? 'is' : 'are'
@@ -27,12 +27,12 @@ export function ContainmentStrip() {
     title = `${breached.map((p) => p.name).join(' & ')} ${breached.length === 1 ? 'is' : 'are'} outside the safe zone`;
     sub = 'Open the Safety Center for the last known position.';
   } else if (silent.length > 0) {
-    tone = 'ring-2 ring-amber-300 bg-amber-50';
+    tone = 'ring-2 ring-tier-attention/50 bg-tier-attention-soft';
     icon = '📡';
     title = `${silent.map((p) => p.name).join(' & ')}'s collar signal lost — containment unverified`;
     sub = 'No recent collar check-in. Check the collar and keep outdoor time supervised.';
   } else if (lowBattery.length > 0) {
-    tone = 'ring-2 ring-amber-300 bg-amber-50';
+    tone = 'ring-2 ring-tier-attention/50 bg-tier-attention-soft';
     icon = '🔋';
     title = `Collar battery critical on ${lowBattery.map((p) => p.name).join(' & ')}'s collar`;
     sub = 'Below this level boundary corrections may not deliver — charge it today.';

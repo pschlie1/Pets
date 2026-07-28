@@ -29,7 +29,7 @@ export function Equipment() {
           return (
             <div
               key={d.id}
-              className={`rounded-2xl bg-card p-5 shadow-sm ${d.status !== 'active' ? 'ring-2 ring-amber-300' : ''}`}
+              className={`rounded-2xl bg-card p-5 shadow-sm ${d.status !== 'active' ? 'ring-2 ring-tier-attention/50' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-3xl" aria-hidden>
@@ -43,7 +43,7 @@ export function Equipment() {
                 </div>
                 <span
                   className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                    d.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-tier-attention'
+                    d.status === 'active' ? 'bg-safe-soft text-safe' : 'bg-tier-attention-soft text-tier-attention'
                   }`}
                 >
                   {d.status === 'active' ? '● Online' : `● ${d.status.replace(/_/g, ' ')}`}

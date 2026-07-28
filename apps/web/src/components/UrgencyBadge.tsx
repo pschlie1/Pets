@@ -1,11 +1,11 @@
 import type { Urgency } from '@connected-care/shared';
 
 const STYLES: Record<Urgency, { bg: string; text: string; icon: string; label: string }> = {
-  info: { bg: 'bg-gray-100', text: 'text-tier-info', icon: '✓', label: 'Info' },
-  monitor: { bg: 'bg-sky-50', text: 'text-tier-monitor', icon: '👀', label: 'Monitor' },
-  attention: { bg: 'bg-amber-50', text: 'text-tier-attention', icon: '💡', label: 'Attention' },
-  urgent: { bg: 'bg-orange-50', text: 'text-tier-urgent', icon: '❗', label: 'Urgent' },
-  emergency: { bg: 'bg-red-50', text: 'text-tier-emergency', icon: '🚨', label: 'Emergency' },
+  info: { bg: 'bg-tier-info-soft', text: 'text-tier-info', icon: '✓', label: 'Info' },
+  monitor: { bg: 'bg-tier-monitor-soft', text: 'text-tier-monitor', icon: '👀', label: 'Monitor' },
+  attention: { bg: 'bg-tier-attention-soft', text: 'text-tier-attention', icon: '💡', label: 'Attention' },
+  urgent: { bg: 'bg-tier-urgent-soft', text: 'text-tier-urgent', icon: '❗', label: 'Urgent' },
+  emergency: { bg: 'bg-tier-emergency-soft', text: 'text-tier-emergency', icon: '🚨', label: 'Emergency' },
 };
 
 export function UrgencyBadge({ urgency }: { urgency: Urgency }) {

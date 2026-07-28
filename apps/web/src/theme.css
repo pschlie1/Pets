@@ -4,7 +4,9 @@
 @import '@fontsource/nunito/700.css';
 @import '@fontsource/nunito/800.css';
 
-/* PetSafe brand tokens — the whole brand lives in this block. */
+/* PetSafe brand tokens — the whole brand lives in this block.
+   Every color on every screen derives from these tokens; no component may
+   use raw Tailwind palette shades or hardcoded hex. */
 @theme {
   --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
 
@@ -14,12 +16,26 @@
   --color-cream: #fbf8f3;
   --color-card: #ffffff;
 
-  /* Urgency tier status colors — reserved, never reused for series. */
+  /* The one "all good" green, everywhere a safe/healthy state appears. */
+  --color-safe: #059669;
+  --color-safe-soft: #e8f7f0;
+
+  /* Urgency tier status colors — reserved, never reused for series.
+     Each tier has a strong ink and a soft background. */
   --color-tier-info: #6b7280;
+  --color-tier-info-soft: #f3f4f6;
   --color-tier-monitor: #0369a1;
+  --color-tier-monitor-soft: #e8f4fb;
   --color-tier-attention: #b45309;
+  --color-tier-attention-soft: #fdf3e3;
   --color-tier-urgent: #c2410c;
+  --color-tier-urgent-soft: #fdeee3;
   --color-tier-emergency: #dc2626;
+  --color-tier-emergency-soft: #fdeaea;
+
+  /* Yard map surfaces (Safety Center SVG reads these via var()). */
+  --color-yard-ground: #f2ecdf;
+  --color-yard-grass: #ddefd8;
 
   --radius-2xl: 1.25rem;
 }

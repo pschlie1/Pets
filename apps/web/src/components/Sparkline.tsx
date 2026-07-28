@@ -8,7 +8,7 @@ export function Sparkline({
   baseline,
   width = 240,
   height = 56,
-  stroke = '#2b2b2b',
+  stroke = 'var(--color-charcoal)',
 }: {
   points: { days_ago: number; value: number }[];
   baseline: { mean: number; stdev: number } | null;
@@ -40,7 +40,7 @@ export function Sparkline({
           y={y(baseline.mean + baseline.stdev)}
           width={width}
           height={Math.max(y(baseline.mean - baseline.stdev) - y(baseline.mean + baseline.stdev), 2)}
-          fill="#ffc72c"
+          fill="var(--color-brand)"
           opacity={0.25}
           rx={3}
         />

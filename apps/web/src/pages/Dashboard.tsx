@@ -36,7 +36,7 @@ export function Dashboard() {
 
       {allCalm ? (
         // One combined reassurance card instead of two green cards in a row.
-        <Link to="/safety" className="block rounded-2xl bg-card p-4 shadow-sm ring-2 ring-emerald-100 transition hover:shadow-md">
+        <Link to="/safety" className="block rounded-2xl bg-card p-4 shadow-sm ring-2 ring-safe/25 transition hover:shadow-md">
           <p className="text-lg font-extrabold">💚 The whole crew is doing great</p>
           <p className="text-sm text-gray-500">
             Everyone's healthy and inside the safe zone — heart rate, walks, meals, water, and the invisible fence are
@@ -85,14 +85,14 @@ export function Dashboard() {
               to="/equipment"
               key={d.id}
               className={`rounded-2xl bg-card p-4 text-sm shadow-sm transition hover:shadow-md ${
-                d.status !== 'active' ? 'ring-2 ring-amber-300' : ''
+                d.status !== 'active' ? 'ring-2 ring-tier-attention/50' : ''
               }`}
             >
               <span className="text-2xl" aria-hidden>
                 {d.device_type === 'containment_collar' ? '📡' : d.device_type === 'feeder' ? '🍽️' : '⛲'}
               </span>
               <span className="mt-1 block font-bold">{d.model ?? d.device_type}</span>
-              <span className={`text-xs ${d.status === 'active' ? 'text-emerald-600' : 'text-tier-attention'}`}>
+              <span className={`text-xs ${d.status === 'active' ? 'text-safe' : 'text-tier-attention'}`}>
                 {d.status === 'active' ? '● Online' : `● ${d.status.replace('_', ' ')}`}
               </span>
             </Link>
