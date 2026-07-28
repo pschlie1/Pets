@@ -1,0 +1,1061 @@
+openapi: 3.1.0
+info:
+  title: Connected Care API
+  version: 1.0.0
+  description: |
+    The Connected Care API tier: device telemetry ingestion, the insight engine,
+    breed reference data, containment/safety status, Claude-powered agents, and
+    the demo presentation tier — the same contracts the production mobile app
+    would build against.
+
+    ## Conventions
+    - **Auth**: every endpoint (except `GET /v1/health`, the SSE stream, and `/docs`)
+      requires `Authorization: Bearer <token>`. The demo accepts any non-empty
+      token; `demo-token` is canonical. *Production note: real deployments
+      validate a JWT carrying the tenant (household) claim.*
+    - **Envelopes**: success responses wrap payloads as `{"data": ...}`; errors
+      are `{"error": {"code", "message", "details?"}}`. Validation failures
+      return `code: "validation_error"` with per-field `details`.
+    - **Timestamps** are ISO-8601 UTC strings.
+    - **Tenancy**: `household` is the tenant boundary. *Production note:
+      row-level isolation by household claim; the demo enforces at the service layer.*
+    - **Scoring**: the demo scores telemetry synchronously on ingestion for
+      instant feedback and returns any new insights in the POST response.
+      *Production note: production consumes the event stream asynchronously so
+      scoring can never block ingestion.*
+
+    ## Realtime (SSE)
+    `GET /v1/households/{householdId}/stream` is a Server-Sent Events stream
+    (`text/event-stream`) — OpenAPI cannot fully model SSE, so see the endpoint
+    description for the frame format and an EventSource example.
+  contact:
+    name: Connected Care platform team
+servers:
+  - url: http://localhost:3001
+    description: Local demo API tier
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+    description: Liveness.
+  - name: Identity & Household
+    description: Households (the tenant boundary), pets, and device links.
+  - name: Pets
+    description: Pet profiles, personal baselines, and daily metric series.
+  - name: Device Telemetry
+    description: One ingestion envelope for every device type, present and future.
+  - name: Breed Reference
+    description: Shared, non-tenant reference data — breed profiles and species-generic fallbacks.
+  - name: Insight Engine
+    description: Severity-scored, urgency-tiered insights and their lifecycle.
+  - name: Containment & Safety
+    description: Live containment status — boundary geometry, per-pet zone state, collar health.
+  - name: Realtime
+    description: Server-Sent Events push of new insights.
+  - name: AI Agent
+    description: The Claude-powered companion agent (grounded, guardrailed).
+  - name: Vet Report
+    description: Shareable veterinary report and the digital share record.
+  - name: Demo Tier
+    description: Seed, reset, and live scenario triggers. Demo environments only.
+
+paths:
+  /v1/health:
+    get:
+      tags: [Health]
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: API tier is up.
+          content:
+            application/json:
+              example: { data: { status: ok, tier: api, demo: true } }
+
+  /v1/households:
+    post:
+      tags: [Identity & Household]
+      summary: Create a household
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateHousehold' }
+            example: { location_city: Chicago, location_state: IL, location_zip: '60614', climate_zone: 6a }
+      responses:
+        '201':
+          description: Household created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdEnvelope' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/households/{householdId}:
+    get:
+      tags: [Identity & Household]
+      summary: Get a household with its pets and devices
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Household detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Household'
+                      - type: object
+                        properties:
+                          pets: { type: array, items: { $ref: '#/components/schemas/Pet' } }
+                          devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/pets:
+    post:
+      tags: [Identity & Household]
+      summary: Add a pet to a household
+      description: |
+        Species-first, breed optional. When `breed_id` is omitted or unknown,
+        the pet links to the species-generic fallback profile and carries
+        `breed_reference_confidence: low`, so downstream insights can state
+        reduced confidence instead of applying the wrong breed's risk profile.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePet' }
+            example: { name: Baxter, species: dog, breed_id: breed_ckcs, date_of_birth: '2017-04-12', weight_lbs: 16.2, sex: male }
+      responses:
+        '201':
+          description: Pet created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/Pet' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}:
+    get:
+      tags: [Pets]
+      summary: Get a pet with breed profile and linked devices
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      responses:
+        '200':
+          description: Pet detail (breed reference fields joined in, `common_conditions` parsed).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Pet'
+                      - type: object
+                        properties:
+                          breed_name: { type: [string, 'null'] }
+                          resting_hr_low: { type: [integer, 'null'] }
+                          resting_hr_high: { type: [integer, 'null'] }
+                          common_conditions:
+                            type: array
+                            items: { $ref: '#/components/schemas/BreedCondition' }
+                          devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Pets]
+      summary: Update a pet
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePet' }
+            example: { weight_lbs: 16.8 }
+      responses:
+        '200':
+          description: Updated pet.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/Pet' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/devices:
+    post:
+      tags: [Pets]
+      summary: Link a device to a pet
+      description: Creates a `device_pet_link` row — the join that makes shared feeders/fountains possible.
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id]
+              properties: { device_id: { type: string } }
+            example: { device_id: dev_feeder_9001 }
+      responses:
+        '201':
+          description: Link created.
+          content:
+            application/json:
+              example: { data: { device_id: dev_feeder_9001, pet_id: pet_5001, linked: true } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/baseline:
+    get:
+      tags: [Pets]
+      summary: Get a pet's personal baselines
+      description: >-
+        Rolling 14-day mean/stdev per metric. Baselines with fewer than 7
+        distinct days of data carry status `insufficient_data` and are
+        suppressed in scoring.
+      parameters:
+        - { $ref: '#/components/parameters/petId' }
+        - name: metric
+          in: query
+          schema: { $ref: '#/components/schemas/Metric' }
+      responses:
+        '200':
+          description: Baselines (all metrics, or one when `metric` is given).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PetBaseline' } }
+
+  /v1/pets/{petId}/metrics:
+    get:
+      tags: [Pets]
+      summary: Get a pet's daily metric series (for trend charts)
+      description: >-
+        Daily values in rolling 24-hour buckets relative to now (so an
+        in-progress day never reads artificially low). Oldest first; the last
+        point has days_ago 0.
+      parameters:
+        - { $ref: '#/components/parameters/petId' }
+        - name: metric
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Metric' }
+        - name: days
+          in: query
+          schema: { type: integer, default: 14, minimum: 1, maximum: 30 }
+      responses:
+        '200':
+          description: Series with the baseline for context.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/MetricSeries' } }
+              example:
+                data:
+                  metric: resting_heart_rate
+                  points: [{ days_ago: 2, value: 96.1 }, { days_ago: 1, value: 97.4 }, { days_ago: 0, value: 96.2 }]
+                  baseline: { mean: 96.2, stdev: 1.9, status: established }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /v1/telemetry/events:
+    post:
+      tags: [Device Telemetry]
+      summary: Ingest a telemetry event (single envelope, all device types)
+      description: |
+        The one ingestion contract. A new device type plugs in by registering an
+        `event_type` and payload shape — never a new endpoint.
+
+        - Unknown `event_type`: **stored and flagged** for schema review
+          (`flagged_reason` set), never rejected.
+        - `occurred_at` more than 24 h in the future → 400.
+        - `pet_id` optional: resolved from a dedicated device's single link;
+          shared devices without attribution store `pet_id: null` and score at
+          household level.
+        - The response includes any insights produced by the synchronous demo
+          scoring pass.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TelemetryEnvelope' }
+            example:
+              device_id: dev_collar_5001
+              event_type: heart_rate_reading
+              occurred_at: '2026-07-28T14:30:00Z'
+              payload: { bpm: 112, activity_state: resting, boundary_status: inside }
+      responses:
+        '201':
+          description: Accepted (insights array may be empty).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      pet_id: { type: [string, 'null'] }
+                      status: { type: string, const: accepted }
+                      flagged_reason: { type: [string, 'null'] }
+                      insights: { type: array, items: { $ref: '#/components/schemas/Insight' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Device deactivated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/devices/{deviceId}/status:
+    get:
+      tags: [Device Telemetry]
+      summary: Get a device's status and last health ping
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+          example: dev_collar_5001
+      responses:
+        '200':
+          description: Device with `last_seen` and parsed `last_health_ping`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Device'
+                      - type: object
+                        properties:
+                          last_seen: { type: [string, 'null'], format: date-time }
+                          last_health_ping: { type: [object, 'null'] }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/breeds:
+    get:
+      tags: [Breed Reference]
+      summary: List breed profiles
+      parameters:
+        - name: species
+          in: query
+          schema: { $ref: '#/components/schemas/Species' }
+      responses:
+        '200':
+          description: Breed profiles (shared reference data — not tenant-scoped).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/BreedProfile' } }
+
+  /v1/breeds/generic/{species}:
+    get:
+      tags: [Breed Reference]
+      summary: Get the species-generic fallback profile
+      description: Used when a pet's breed is not in the library yet — downstream insights carry reduced confidence rather than the wrong breed's risk profile.
+      parameters:
+        - name: species
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/Species' }
+      responses:
+        '200':
+          description: The fallback profile (is_generic_fallback true).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/BreedProfile' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/breeds/{breedId}:
+    get:
+      tags: [Breed Reference]
+      summary: Get one breed profile
+      parameters:
+        - name: breedId
+          in: path
+          required: true
+          schema: { type: string }
+          example: breed_ckcs
+      responses:
+        '200':
+          description: Breed profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/BreedProfile' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/insights:
+    get:
+      tags: [Insight Engine]
+      summary: List one pet's insights
+      parameters:
+        - { $ref: '#/components/parameters/petId' }
+        - name: urgency
+          in: query
+          description: Minimum urgency tier (inclusive).
+          schema: { $ref: '#/components/schemas/Urgency' }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Insights, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Insight' } }
+
+  /v1/households/{householdId}/insights:
+    get:
+      tags: [Insight Engine]
+      summary: Household insight rollup (paginated)
+      description: Powers the household peer-comparison view.
+      parameters:
+        - { $ref: '#/components/parameters/householdId' }
+        - name: urgency
+          in: query
+          schema: { $ref: '#/components/schemas/Urgency' }
+        - name: pet_id
+          in: query
+          schema: { type: string }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1, minimum: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+      responses:
+        '200':
+          description: Paginated insights.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Insight' } }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+
+  /v1/insights/{insightId}/acknowledge:
+    post:
+      tags: [Insight Engine]
+      summary: Acknowledge an insight
+      description: 'Lifecycle: unseen → seen → acknowledged | dismissed. Dismissals feed the precision metric.'
+      parameters: [{ $ref: '#/components/parameters/insightId' }]
+      responses:
+        '200': { $ref: '#/components/responses/InsightUpdated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/insights/{insightId}/dismiss:
+    post:
+      tags: [Insight Engine]
+      summary: Dismiss an insight ("this was noise")
+      parameters: [{ $ref: '#/components/parameters/insightId' }]
+      responses:
+        '200': { $ref: '#/components/responses/InsightUpdated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/insights/{insightId}/route:
+    post:
+      tags: [Insight Engine]
+      summary: Route an insight to the dealer associate queue
+      description: Emergency-tier safety insights are routed automatically; this endpoint routes any insight manually. Sets `routed_to_associate`.
+      parameters: [{ $ref: '#/components/parameters/insightId' }]
+      responses:
+        '200': { $ref: '#/components/responses/InsightUpdated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/containment:
+    get:
+      tags: [Containment & Safety]
+      summary: Live containment status for the Safety Center
+      description: |
+        Boundary geometry, per-pet zone status (derived from the most recent
+        `boundary_check` / `boundary_event`), collar health, and a 48-hour
+        boundary activity timeline.
+
+        Demo note: this endpoint lazily synthesizes any missing 15-minute collar
+        check-ins ("top-up") so a seeded database stays live-looking on screen —
+        deterministically, and never over an offline collar or an unreturned
+        breach. Production collars stream continuously.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Containment status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/ContainmentStatus' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/stream:
+    get:
+      tags: [Realtime]
+      summary: Server-Sent Events stream of new insights
+      security: []
+      description: |
+        `text/event-stream`. Frames: `event: insight` with the full Insight JSON
+        as `data`; comment heartbeats (`: ping`) every 15 s.
+
+        ```js
+        const es = new EventSource('/v1/households/hh_2291/stream');
+        es.addEventListener('insight', (e) => console.log(JSON.parse(e.data)));
+        ```
+
+        Unauthenticated in the demo because `EventSource` cannot set an
+        `Authorization` header. *Production note: authenticate via cookie or
+        signed URL.* OpenAPI cannot fully model SSE; this entry documents the
+        contract informally.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: An open SSE stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: |
+                : connected
+
+                event: insight
+                data: {"id":"...","urgency":"urgent","summary":"..."}
+
+  /v1/agent/query:
+    post:
+      tags: [AI Agent]
+      summary: Ask the companion agent about a pet
+      description: |
+        Grounded strictly in the household's own data (profile, baselines, breed
+        profile, recent insights, sibling summary, containment status).
+        Guardrails: never diagnoses; urgent/emergency topics always include a vet
+        recommendation; medication/dosing questions are declined before reaching
+        the model. `mode` reports whether the answer came from the live Claude
+        API (`claude`) or the deterministic grounded fallback (`template`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pet_id, question]
+              properties:
+                pet_id: { type: string }
+                question: { type: string, maxLength: 2000 }
+            example: { pet_id: pet_5001, question: How is Baxter's heart rate trending? }
+      responses:
+        '200':
+          description: Grounded answer.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/AgentReply' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/vet-report:
+    get:
+      tags: [Vet Report]
+      summary: Assemble the live veterinary report
+      description: |
+        Assembled at request time — never persisted; only shares persist.
+        Includes an agent-written professional summary (Claude or deterministic
+        template; `summary.mode` says which) under strict guardrails: a
+        device-data pattern summary, never a diagnosis. `active_insights`
+        excludes dismissed insights (the owner marked them irrelevant) and keeps
+        acknowledged ones.
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      responses:
+        '200':
+          description: The report.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/VetReport' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/vet-report/share:
+    post:
+      tags: [Vet Report]
+      summary: Record a digital share of the report
+      description: |
+        The server snapshots the ids of the currently-active insights into the
+        share record. *Production note: v2 integrates real vet portals; the demo
+        records and confirms the share without external delivery.*
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient, method]
+              properties:
+                recipient: { type: string, maxLength: 200 }
+                method: { type: string, enum: [portal, email, link] }
+            example: { recipient: Lincoln Park Veterinary Clinic, method: portal }
+      responses:
+        '201':
+          description: Share recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/VetShare' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/demo/households:
+    post:
+      tags: [Demo Tier]
+      summary: Seed the reference demo household (idempotent)
+      description: Seeds Baxter & Wrigley with 21 days of deterministic telemetry through the same schema production ingestion uses. No-op if already seeded.
+      responses:
+        '201':
+          description: Seed state.
+          content:
+            application/json:
+              example: { data: { household_id: hh_2291, seeded: true } }
+
+  /v1/demo/households/{householdId}/reset:
+    post:
+      tags: [Demo Tier]
+      summary: Reset the demo household to pristine seed state
+      description: Wipes all data (including vet shares) and reseeds with the fixed PRNG — byte-identical every time. Only the reference household can be reset.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Reset done.
+          content:
+            application/json:
+              example: { data: { household_id: hh_2291, reset: true } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/demo/scenarios:
+    get:
+      tags: [Demo Tier]
+      summary: List the demo scenarios
+      responses:
+        '200':
+          description: The nine showcase scenarios with expected tiers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ScenarioMeta' } }
+
+  /v1/demo/households/{householdId}/scenarios/{key}:
+    post:
+      tags: [Demo Tier]
+      summary: Trigger a demo scenario
+      description: |
+        Injects a crafted, backdated telemetry sequence and runs the real
+        scoring pipeline — the returned insights are computed and narrated live,
+        not scripted. Re-triggering the same scenario the same day is deduped
+        (empty `insights` + a `note`).
+      parameters:
+        - { $ref: '#/components/parameters/householdId' }
+        - name: key
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ScenarioKey' }
+      responses:
+        '200':
+          description: Produced insights.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      scenario: { $ref: '#/components/schemas/ScenarioMeta' }
+                      insights: { type: array, items: { $ref: '#/components/schemas/Insight' } }
+                      note: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Any non-empty token in the demo (`demo-token` canonical). Production validates a JWT with the tenant claim.
+
+  parameters:
+    householdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { type: string }
+      example: hh_2291
+    petId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: string }
+      example: pet_5001
+    insightId:
+      name: insightId
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    ValidationError:
+      description: Request failed validation; `details` lists per-field failures.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: validation_error
+              message: Request body failed validation.
+              details: [{ path: device_id, message: device_id is required }]
+    Unauthorized:
+      description: Missing or empty bearer token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: unauthorized, message: A bearer token is required. } }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { code: not_found, message: Pet not found. } }
+    InsightUpdated:
+      description: The updated insight.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { data: { $ref: '#/components/schemas/Insight' } }
+
+  schemas:
+    Species:
+      type: string
+      enum: [dog, cat, other]
+    Urgency:
+      type: string
+      enum: [info, monitor, attention, urgent, emergency]
+      description: The five-tier scale that decides how (and whether) an insight reaches the owner.
+    InsightType:
+      type: string
+      enum: [pet_health, pet_safety, equipment]
+    DeviceType:
+      type: string
+      enum: [containment_collar, feeder, fountain]
+    Metric:
+      type: string
+      enum: [resting_heart_rate, walk_minutes, water_intake_ml, food_intake_g, sleep_hours, feeder_schedule_drift_min, fountain_flow_rate, collar_battery_pct, boundary_safety, containment_signal]
+    KnownEventType:
+      type: string
+      enum: [boundary_check, boundary_event, heart_rate_reading, activity_session, sleep_session, drinking_session, feeding_session, device_health_ping]
+      description: Event types the engine scores today. Unknown types are stored and flagged, never rejected.
+    ScenarioKey:
+      type: string
+      enum: [info_water_dip, monitor_feeder_drift, attention_cold_snap, attention_fountain_filter, urgent_baxter_heart, breach_safe_return, collar_signal_lost, collar_battery_critical, emergency_boundary_breach]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        total_pages: { type: integer }
+
+    CreateHousehold:
+      type: object
+      required: [location_city, location_state, location_zip]
+      properties:
+        location_city: { type: string }
+        location_state: { type: string }
+        location_zip: { type: string }
+        climate_zone: { type: string }
+
+    Household:
+      type: object
+      properties:
+        id: { type: string, example: hh_2291 }
+        location_city: { type: string, example: Chicago }
+        location_state: { type: string, example: IL }
+        location_zip: { type: string, example: '60614' }
+        climate_zone: { type: [string, 'null'], example: 6a }
+        created_at: { type: string, format: date-time }
+
+    HouseholdEnvelope:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Household' }
+
+    CreatePet:
+      type: object
+      required: [name, species]
+      properties:
+        name: { type: string }
+        species: { $ref: '#/components/schemas/Species' }
+        breed_id: { type: [string, 'null'], description: Omit or null to fall back to the species-generic profile. }
+        date_of_birth: { type: string, format: date }
+        weight_lbs: { type: number }
+        sex: { type: string }
+
+    Pet:
+      type: object
+      properties:
+        id: { type: string, example: pet_5001 }
+        household_id: { type: string, example: hh_2291 }
+        name: { type: string, example: Baxter }
+        species: { $ref: '#/components/schemas/Species' }
+        breed_id: { type: [string, 'null'], example: breed_ckcs }
+        breed_reference_confidence: { type: string, enum: [high, low] }
+        date_of_birth: { type: [string, 'null'], format: date }
+        weight_lbs: { type: [number, 'null'], example: 16.2 }
+        sex: { type: [string, 'null'] }
+
+    Device:
+      type: object
+      properties:
+        id: { type: string, example: dev_collar_5001 }
+        household_id: { type: string }
+        device_type: { $ref: '#/components/schemas/DeviceType' }
+        model: { type: [string, 'null'], example: Boundary Plus GPS 2.0 }
+        assignment_mode: { type: string, enum: [dedicated, shared] }
+        has_pet_attribution: { type: integer, description: SQLite boolean (0/1). }
+        status: { type: string, enum: [active, low_battery, offline, needs_service] }
+
+    BreedCondition:
+      type: object
+      properties:
+        condition: { type: string, example: mitral valve disease }
+        typical_onset: { type: string, example: age 5-7 for half the breed, near all by 10-11 }
+        monitorable_today: { type: boolean }
+
+    BreedProfile:
+      type: object
+      properties:
+        id: { type: string, example: breed_ckcs }
+        species: { $ref: '#/components/schemas/Species' }
+        breed_name: { type: [string, 'null'], example: Cavalier King Charles Spaniel }
+        size_class: { type: string, example: small }
+        resting_hr_low: { type: integer, example: 90 }
+        resting_hr_high: { type: integer, example: 140 }
+        common_conditions:
+          type: array
+          items: { $ref: '#/components/schemas/BreedCondition' }
+        is_generic_fallback: { type: integer, description: SQLite boolean (0/1). }
+
+    PetBaseline:
+      type: object
+      properties:
+        pet_id: { type: string }
+        metric: { $ref: '#/components/schemas/Metric' }
+        mean: { type: number, example: 96.2 }
+        stdev: { type: number, example: 1.9 }
+        window_days: { type: integer, example: 14 }
+        sample_count: { type: integer, example: 14 }
+        status: { type: string, enum: [insufficient_data, established] }
+        last_computed: { type: string, format: date-time }
+
+    TelemetryEnvelope:
+      type: object
+      required: [device_id, event_type, occurred_at]
+      properties:
+        device_id: { type: string }
+        event_type: { type: string, description: Known types are scored; unknown types are stored + flagged. }
+        occurred_at: { type: string, format: date-time, description: Rejected if more than 24 h in the future. }
+        pet_id: { type: [string, 'null'] }
+        payload: { type: object, additionalProperties: true }
+        schema_version: { type: integer, default: 1 }
+
+    MetricSeries:
+      type: object
+      properties:
+        metric: { $ref: '#/components/schemas/Metric' }
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              days_ago: { type: integer, description: Rolling 24h bucket; 0 = the last 24 hours. }
+              value: { type: number }
+        baseline:
+          type: [object, 'null']
+          properties:
+            mean: { type: number }
+            stdev: { type: number }
+            status: { type: string }
+
+    Insight:
+      type: object
+      properties:
+        id: { type: string }
+        household_id: { type: string }
+        pet_id: { type: [string, 'null'] }
+        device_id: { type: [string, 'null'] }
+        insight_type: { $ref: '#/components/schemas/InsightType' }
+        metric: { $ref: '#/components/schemas/Metric' }
+        severity_score: { type: number }
+        urgency: { $ref: '#/components/schemas/Urgency' }
+        summary: { type: string, example: "Baxter's resting heart rate has run 15% above his own baseline for 3 days. Wrigley's readings stay normal over the same period, which rules out a shared household cause." }
+        recommended_action: { type: string, example: Schedule a vet visit and mention the resting heart rate trend. }
+        generated_at: { type: string, format: date-time }
+        acknowledged_status: { type: string, enum: [unseen, seen, acknowledged, dismissed] }
+        routed_to_associate: { type: integer, description: SQLite boolean (0/1). }
+        narration_mode: { type: string, enum: [claude, template] }
+
+    LatLng:
+      type: object
+      properties:
+        lat: { type: number, example: 41.9208 }
+        lng: { type: number, example: -87.6525 }
+
+    ContainmentStatus:
+      type: object
+      properties:
+        household_id: { type: string }
+        boundary:
+          type: object
+          properties:
+            center: { $ref: '#/components/schemas/LatLng' }
+            polygon: { type: array, items: { $ref: '#/components/schemas/LatLng' } }
+            label: { type: string, example: Backyard — Boundary Plus zone }
+        overall: { type: string, enum: [all_safe, alert, degraded] }
+        pets:
+          type: array
+          items:
+            type: object
+            properties:
+              pet_id: { type: string }
+              name: { type: string }
+              device_id: { type: string }
+              device_label: { type: string }
+              device_status: { type: string, enum: [active, low_battery, offline, needs_service] }
+              zone_status: { type: string, enum: [inside, outside, unknown] }
+              containment_state: { type: string, enum: [protected, breach, signal_lost] }
+              last_position: { oneOf: [{ $ref: '#/components/schemas/LatLng' }, { type: 'null' }] }
+              last_check_in: { type: [string, 'null'], format: date-time }
+              minutes_since_check_in: { type: [integer, 'null'] }
+              battery_pct: { type: [number, 'null'] }
+              signal_strength: { type: [integer, 'null'] }
+        recent_events:
+          type: array
+          items:
+            type: object
+            properties:
+              occurred_at: { type: string, format: date-time }
+              pet_id: { type: [string, 'null'] }
+              pet_name: { type: [string, 'null'] }
+              kind: { type: string, enum: [breach, return_to_zone, signal_lost, check] }
+              detail: { type: string }
+
+    AgentReply:
+      type: object
+      properties:
+        answer: { type: string }
+        mode: { type: string, enum: [claude, template] }
+        pet_id: { type: string }
+        data_window_days: { type: integer, example: 14 }
+
+    VetShare:
+      type: object
+      properties:
+        id: { type: string }
+        household_id: { type: string }
+        pet_id: { type: string }
+        recipient: { type: string, example: Lincoln Park Veterinary Clinic }
+        method: { type: string, enum: [portal, email, link] }
+        insight_ids: { type: array, items: { type: string } }
+        shared_at: { type: string, format: date-time }
+
+    VetReport:
+      type: object
+      description: Assembled live at GET time; never persisted.
+      properties:
+        report_id: { type: string }
+        generated_at: { type: string, format: date-time }
+        window_days: { type: integer, example: 14 }
+        pet:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            species: { $ref: '#/components/schemas/Species' }
+            breed_name: { type: [string, 'null'] }
+            breed_reference_confidence: { type: string, enum: [high, low] }
+            date_of_birth: { type: [string, 'null'], format: date }
+            age_years: { type: [integer, 'null'] }
+            weight_lbs: { type: [number, 'null'] }
+            sex: { type: [string, 'null'] }
+        breed:
+          type: [object, 'null']
+          properties:
+            breed_name: { type: [string, 'null'] }
+            size_class: { type: string }
+            resting_hr_low: { type: integer }
+            resting_hr_high: { type: integer }
+            common_conditions: { type: array, items: { $ref: '#/components/schemas/BreedCondition' } }
+            is_generic_fallback: { type: boolean }
+        summary:
+          type: object
+          properties:
+            text: { type: string }
+            mode: { type: string, enum: [claude, template] }
+        baselines: { type: array, items: { $ref: '#/components/schemas/PetBaseline' } }
+        metrics: { type: array, items: { $ref: '#/components/schemas/MetricSeries' } }
+        active_insights: { type: array, items: { $ref: '#/components/schemas/Insight' } }
+        containment:
+          type: [object, 'null']
+          properties:
+            state: { type: string }
+            minutes_since_check_in: { type: [integer, 'null'] }
+            battery_pct: { type: [number, 'null'] }
+        environment:
+          type: [object, 'null']
+          properties:
+            date: { type: string }
+            low_f: { type: [number, 'null'] }
+            high_f: { type: [number, 'null'] }
+            conditions: { type: [string, 'null'] }
+        shares: { type: array, items: { $ref: '#/components/schemas/VetShare' } }
+
+    ScenarioMeta:
+      type: object
+      properties:
+        key: { $ref: '#/components/schemas/ScenarioKey' }
+        name: { type: string, example: Baxter's heart rate trend }
+        description: { type: string }
+        expectedUrgency: { $ref: '#/components/schemas/Urgency' }
+        insightType: { $ref: '#/components/schemas/InsightType' }
+        watchFor: { type: string }
