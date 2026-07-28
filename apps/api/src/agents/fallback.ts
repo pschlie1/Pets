@@ -17,6 +17,8 @@ const METRIC_LABELS: Record<string, string> = {
   feeder_schedule_drift_min: 'feeding schedule',
   fountain_flow_rate: 'fountain flow rate',
   boundary_safety: 'boundary safety',
+  containment_signal: 'collar signal',
+  collar_battery_pct: 'collar battery',
 };
 
 function label(metric: string): string {
@@ -36,6 +38,37 @@ export function narratorTemplate(input: NarratorInput): { summary: string; recom
         `This needs your attention right now — whether the cause is a health event or a device failure, the situation is the same. ` +
         `Your local dealer associate has been alerted in parallel.`,
       recommendedAction: `Go to ${name} now, and call your emergency vet contact if ${name} is unresponsive.`,
+    };
+  }
+
+  // Containment-specific templates come before the generic tier branches.
+  if (input.metric === 'containment_signal') {
+    const mins = input.currentValue !== null ? `${Math.round(input.currentValue)} minutes` : 'a while';
+    return {
+      summary:
+        `${name}'s collar hasn't checked in for ${mins}, so the yard boundary can't be verified right now. ` +
+        `This is usually a charging or placement issue — but until check-ins resume, treat the fence as unverified rather than assume all is well.`,
+      recommendedAction: `Check that the collar is on ${name}, charged, and in range — and keep ${name} supervised outdoors until the signal returns.`,
+    };
+  }
+
+  if (input.metric === 'boundary_safety' && input.urgency === 'monitor') {
+    const mins = input.currentValue !== null ? `about ${Math.round(input.currentValue)} minutes` : 'a few minutes';
+    return {
+      summary:
+        `${name} stepped past the boundary for ${mins} but kept moving the whole time and returned to the safe zone unaided. ` +
+        `No alarm needed — logged so a repeating pattern would stand out.`,
+      recommendedAction: `No action needed — if brief excursions keep happening, a boundary-width adjustment is worth a look.`,
+    };
+  }
+
+  if (input.metric === 'collar_battery_pct' && input.urgency === 'urgent') {
+    const pct = input.currentValue !== null ? `${Math.round(input.currentValue)}%` : 'critically low';
+    return {
+      summary:
+        `The ${input.deviceLabel ?? 'containment collar'} battery is at ${pct}. ` +
+        `Below this level, boundary corrections may not deliver — this is a safety gap, not just maintenance.`,
+      recommendedAction: `Charge or swap the collar battery today, and keep the yard supervised until it's back above 20%.`,
     };
   }
 
@@ -112,6 +145,19 @@ export function companionTemplate(ctx: PetContext, question: string): string {
       ? ` Because there is an active ${urgentInsights[0].urgency} insight for ${name}, please contact your veterinarian to discuss it.`
       : '';
 
+  if (/fence|boundary|yard|collar|contain|safe zone|escape/.test(q)) {
+    const c = ctx.containment;
+    if (c) {
+      if (c.state === 'breach') {
+        return `${name} is outside the safe zone right now — please go check on ${name} immediately. Your local dealer associate has been alerted in parallel with this notification.`;
+      }
+      if (c.state === 'signal_lost') {
+        return `${name}'s collar hasn't checked in for ${c.minutesSinceCheckIn ?? 'many'} minutes, so I can't verify the boundary right now. Check the collar is on, charged, and in range — and keep ${name} supervised outdoors until the signal returns.`;
+      }
+      const battery = c.batteryPct !== null ? ` The collar battery is at ${c.batteryPct}%.` : '';
+      return `The fence is doing its job — ${name} is inside the safe zone, and the collar checked in ${c.minutesSinceCheckIn ?? 0} minutes ago.${battery} I'll speak up the moment that changes.${vetNote}`;
+    }
+  }
   if (/heart|hr\b|bpm|cardiac/.test(q)) {
     const b = baseline('resting_heart_rate');
     if (b) {

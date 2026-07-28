@@ -1,5 +1,6 @@
 import type { Db } from '../db/connection';
 import { BASELINE_WINDOW_DAYS } from '../engine/baselines';
+import { getContainmentStatus } from '../engine/containment';
 
 /**
  * Demo-tier context assembly (PRD §7.2): the pet's profile, baselines, breed
@@ -30,6 +31,11 @@ export interface PetContext {
   recentInsights: { urgency: string; insight_type: string; metric: string; summary: string; generated_at: string }[];
   sibling: { name: string; species: string } | null;
   environment: { date: string; lowF: number | null; highF: number | null; conditions: string | null } | null;
+  containment: {
+    state: 'protected' | 'breach' | 'signal_lost';
+    minutesSinceCheckIn: number | null;
+    batteryPct: number | null;
+  } | null;
   dataWindowDays: number;
 }
 
@@ -76,6 +82,9 @@ export function buildPetContext(db: Db, petId: string): PetContext | null {
   const dob = pet.date_of_birth as string | null;
   const ageYears = dob ? Math.floor((Date.now() - Date.parse(dob)) / (365.25 * 86_400_000)) : null;
 
+  const containmentStatus = getContainmentStatus(db, pet.household_id as string);
+  const petContainment = containmentStatus.pets.find((p) => p.pet_id === petId);
+
   return {
     pet: {
       id: pet.id as string,
@@ -105,6 +114,13 @@ export function buildPetContext(db: Db, petId: string): PetContext | null {
     sibling: sibling ?? null,
     environment: env
       ? { date: env.date, lowF: env.temperature_low_f, highF: env.temperature_high_f, conditions: env.conditions }
+      : null,
+    containment: petContainment
+      ? {
+          state: petContainment.containment_state,
+          minutesSinceCheckIn: petContainment.minutes_since_check_in,
+          batteryPct: petContainment.battery_pct,
+        }
       : null,
     dataWindowDays: BASELINE_WINDOW_DAYS,
   };
@@ -152,6 +168,16 @@ export function renderContext(ctx: PetContext): string {
     lines.push(
       `Latest local weather (${ctx.environment.date}): ${ctx.environment.lowF}-${ctx.environment.highF}°F, ${ctx.environment.conditions ?? ''}`,
     );
+  }
+  if (ctx.containment) {
+    const c = ctx.containment;
+    const stateText =
+      c.state === 'protected'
+        ? `inside the safe zone, last collar check-in ${c.minutesSinceCheckIn ?? '?'} minutes ago`
+        : c.state === 'breach'
+          ? 'OUTSIDE the safe zone right now'
+          : `collar signal lost — no check-in for ${c.minutesSinceCheckIn ?? '?'} minutes, containment unverified`;
+    lines.push(`Containment: ${stateText}${c.batteryPct !== null ? `; collar battery ${c.batteryPct}%` : ''}`);
   }
   return lines.join('\n');
 }

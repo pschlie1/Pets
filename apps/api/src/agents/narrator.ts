@@ -42,7 +42,8 @@ Rules — follow every one:
 - emergency tier: the summary's FIRST sentence must state the safety-relevant fact.
 - info/monitor tiers: keep the tone light and reassuring.
 - attention tier with an environmental explanation: calm, explanatory tone — not alarming.
-- Equipment insights: focus on the device and the fix, not pet health.`;
+- Equipment insights: focus on the device and the fix, not pet health.
+- Signal-loss insights (metric containment_signal): be honest that containment is unverified, without implying the pet escaped.`;
 
 export async function narrateInsight(input: NarratorInput): Promise<Narration> {
   const text = await callClaude({
