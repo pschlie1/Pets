@@ -122,16 +122,41 @@ export function scoreMetric(input: ScoringInput): ScoringResult {
 }
 
 /**
- * Safety events bypass statistical scoring: a boundary breach with extended
- * no-motion is an emergency regardless of any baseline.
+ * Safety events bypass statistical scoring. Tiering is deliberate:
+ * - breach + extended no-motion → emergency (the only route to emergency)
+ * - active breach with motion → urgent
+ * - brief excursion that self-resolved → monitor (calm note, not an alarm)
+ * - signal loss → attention: no evidence of a breach, only loss of
+ *   verification; urgent stays reserved for a device that reports it is dying
  */
-export interface SafetyEventInput {
-  eventType: 'boundary_breach';
-  minutesOutsideZone: number;
-  motionDetected: boolean;
-}
+export type SafetyEventInput =
+  | { eventType: 'boundary_breach'; minutesOutsideZone: number; motionDetected: boolean }
+  | { eventType: 'breach_safe_return'; minutesOutsideZone: number; motionDetected: boolean }
+  | { eventType: 'signal_lost'; minutesSinceCheckIn: number };
 
 export function scoreSafetyEvent(input: SafetyEventInput): ScoringResult {
+  if (input.eventType === 'signal_lost') {
+    return {
+      severityScore: 3,
+      urgency: 'attention',
+      personalDeviation: 0,
+      confidence: 'normal',
+      factors: [
+        `no collar check-in for ${Math.round(input.minutesSinceCheckIn)} minutes — containment cannot be verified`,
+      ],
+    };
+  }
+
+  if (input.eventType === 'breach_safe_return') {
+    return {
+      severityScore: 1.5,
+      urgency: 'monitor',
+      personalDeviation: 0,
+      confidence: 'normal',
+      factors: ['brief excursion with continuous motion, returned to the safe zone unaided'],
+    };
+  }
+
   const noMotion = !input.motionDetected && input.minutesOutsideZone >= 10;
   return {
     severityScore: noMotion ? 10 : 6,

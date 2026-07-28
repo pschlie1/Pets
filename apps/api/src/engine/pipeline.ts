@@ -1,5 +1,5 @@
 import type { Insight, InsightType, Urgency } from '@connected-care/shared';
-import { urgencyRank } from '@connected-care/shared';
+import { SIGNAL_LOSS_MIN, urgencyRank } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { uuid } from '../db/connection';
 import { dailyMetricSeries, type PetMetric } from './aggregates';
@@ -468,14 +468,25 @@ export async function evaluateSafetyEvent(
   listener?: InsightListener,
 ): Promise<Insight | null> {
   const p = event.payload as { status?: string; minutes_outside_zone?: number; motion_detected?: boolean };
-  if (p.status !== 'breach') return null;
+  if (p.status !== 'breach' && p.status !== 'return_to_zone') return null;
 
   const pet = event.pet_id ? getPet(db, event.pet_id) : undefined;
-  const result = scoreSafetyEvent({
-    eventType: 'boundary_breach',
-    minutesOutsideZone: p.minutes_outside_zone ?? 0,
-    motionDetected: p.motion_detected ?? true,
-  });
+  // A return_to_zone scores as a calm monitor note. If a same-day breach
+  // insight already exists for this pet, persistInsight's dedupe refuses the
+  // downgrade — the louder insight stands, which is the correct behavior.
+  const result = scoreSafetyEvent(
+    p.status === 'return_to_zone'
+      ? {
+          eventType: 'breach_safe_return',
+          minutesOutsideZone: p.minutes_outside_zone ?? 0,
+          motionDetected: p.motion_detected ?? true,
+        }
+      : {
+          eventType: 'boundary_breach',
+          minutesOutsideZone: p.minutes_outside_zone ?? 0,
+          motionDetected: p.motion_detected ?? true,
+        },
+  );
 
   return persistInsight(
     db,
@@ -495,6 +506,70 @@ export async function evaluateSafetyEvent(
         petName: pet?.name ?? null,
         deviceLabel: 'Boundary Plus GPS collar',
         currentValue: p.minutes_outside_zone ?? null,
+        baselineMean: null,
+        deviationPct: null,
+        durationDays: 1,
+        factors: result.factors,
+        breedContext: null,
+        siblingName: null,
+        siblingDeviated: null,
+        environmentNote: null,
+      },
+    },
+    listener,
+  );
+}
+
+/**
+ * Signal-loss detection. Loss is the ABSENCE of events, so nothing flows
+ * through evaluateAfterEvent — the demo scenario calls this directly.
+ * PRODUCTION NOTE: production runs this as a watchdog job over each collar's
+ * MAX(occurred_at), not on demand.
+ */
+export async function evaluateCollarSignal(
+  db: Db,
+  deviceId: string,
+  now: number = Date.now(),
+  listener?: InsightListener,
+): Promise<Insight | null> {
+  const device = db
+    .prepare(`SELECT id, household_id, model FROM devices WHERE id = ? AND deleted_at IS NULL`)
+    .get(deviceId) as { id: string; household_id: string; model: string | null } | undefined;
+  if (!device) return null;
+
+  const link = db
+    .prepare(`SELECT pet_id FROM device_pet_links WHERE device_id = ? AND unlinked_at IS NULL LIMIT 1`)
+    .get(deviceId) as { pet_id: string } | undefined;
+  const pet = link ? getPet(db, link.pet_id) : undefined;
+
+  const latest = db
+    .prepare(
+      `SELECT MAX(occurred_at) AS at FROM telemetry_events WHERE device_id = ? AND event_type = 'boundary_check'`,
+    )
+    .get(deviceId) as { at: string | null };
+  const minutesSince = latest.at ? Math.round((now - Date.parse(latest.at)) / 60_000) : Infinity;
+  if (minutesSince < SIGNAL_LOSS_MIN) return null;
+
+  db.prepare(`UPDATE devices SET status = 'offline' WHERE id = ?`).run(deviceId);
+
+  const result = scoreSafetyEvent({ eventType: 'signal_lost', minutesSinceCheckIn: minutesSince });
+  return persistInsight(
+    db,
+    {
+      householdId: device.household_id,
+      petId: pet?.id ?? null,
+      deviceId,
+      insightType: 'pet_safety',
+      metric: 'containment_signal',
+      result,
+      now,
+      narratorInput: {
+        insightType: 'pet_safety',
+        urgency: result.urgency,
+        metric: 'containment_signal',
+        petName: pet?.name ?? null,
+        deviceLabel: device.model ?? 'Containment collar',
+        currentValue: Number.isFinite(minutesSince) ? minutesSince : null,
         baselineMean: null,
         deviationPct: null,
         durationDays: 1,
@@ -534,6 +609,9 @@ export async function evaluateAfterEvent(
 
   if (event.event_type === 'boundary_event') {
     insights.push(await evaluateSafetyEvent(db, event, now, listener));
+  } else if (event.event_type === 'boundary_check') {
+    // A check-in arriving for an offline collar means the signal is back.
+    db.prepare(`UPDATE devices SET status = 'active' WHERE id = ? AND status = 'offline'`).run(event.device_id);
   } else if (event.event_type === 'device_health_ping') {
     insights.push(await evaluateDevice(db, event.device_id, now, listener));
   } else if (event.pet_id && EVENT_METRIC[event.event_type]) {

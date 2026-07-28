@@ -4,6 +4,7 @@ import { requireAuth } from './middleware/auth';
 import { errorHandler } from './middleware/errors';
 import { agentRoutes } from './routes/agent';
 import { breedRoutes } from './routes/breeds';
+import { containmentRoutes } from './routes/containment';
 import { demoRoutes } from './routes/demo';
 import { householdRoutes } from './routes/households';
 import { insightRoutes } from './routes/insights';
@@ -34,6 +35,7 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
 
   app.use('/v1', requireAuth);
   app.use('/v1', householdRoutes(db));
+  app.use('/v1', containmentRoutes(db));
   app.use('/v1', telemetryRoutes(db, onInsight));
   app.use('/v1', breedRoutes(db));
   app.use('/v1', insightRoutes(db));
