@@ -44,6 +44,8 @@ export const METRICS = [
   'feeder_schedule_drift_min',
   'fountain_flow_rate',
   'collar_battery_pct',
+  'boundary_safety',
+  'containment_signal',
 ] as const;
 export type Metric = (typeof METRICS)[number];
 

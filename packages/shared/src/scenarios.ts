@@ -10,6 +10,9 @@ export const SCENARIO_KEYS = [
   'attention_cold_snap',
   'attention_fountain_filter',
   'urgent_baxter_heart',
+  'breach_safe_return',
+  'collar_signal_lost',
+  'collar_battery_critical',
   'emergency_boundary_breach',
 ] as const;
 export type ScenarioKey = (typeof SCENARIO_KEYS)[number];
@@ -69,6 +72,36 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     insightType: 'pet_health',
     watchFor:
       "Sibling divergence upgrades severity. Breed cardiac risk at age 9 makes it urgent — with a specific vet recommendation.",
+  },
+  breach_safe_return: {
+    key: 'breach_safe_return',
+    name: 'Brief breach, safe return',
+    description:
+      'Baxter steps past the boundary but keeps moving the whole time and returns to the safe zone on his own within minutes.',
+    expectedUrgency: 'monitor',
+    insightType: 'pet_safety',
+    watchFor:
+      'A calm logged note instead of an alarm — motion + quick return means no panic, just a pattern worth tracking.',
+  },
+  collar_signal_lost: {
+    key: 'collar_signal_lost',
+    name: 'Collar signal lost',
+    description:
+      "Wrigley's collar stops checking in. The system notices the silence itself: containment can no longer be verified.",
+    expectedUrgency: 'attention',
+    insightType: 'pet_safety',
+    watchFor:
+      "An honest 'we can't verify the fence right now' — the system watches the watchers instead of showing a false all-clear.",
+  },
+  collar_battery_critical: {
+    key: 'collar_battery_critical',
+    name: 'Collar battery critical',
+    description:
+      "Baxter's collar battery drains to 12%. Below this level boundary corrections may not deliver.",
+    expectedUrgency: 'urgent',
+    insightType: 'equipment',
+    watchFor:
+      'A maintenance ticket becomes a safety gap: urgency reflects the containment exposure, not just the dying battery.',
   },
   emergency_boundary_breach: {
     key: 'emergency_boundary_breach',
