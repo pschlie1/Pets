@@ -7,11 +7,13 @@ import { DemoPanel } from './pages/DemoPanel';
 import { Equipment } from './pages/Equipment';
 import { Insights } from './pages/Insights';
 import { PetDetail } from './pages/PetDetail';
+import { SafetyCenter } from './pages/SafetyCenter';
 import { HouseholdProvider, useHousehold } from './state/HouseholdContext';
 
 function Nav() {
-  const { insights } = useHousehold();
+  const { insights, containment } = useHousehold();
   const unseen = insights.filter((i) => i.acknowledged_status === 'unseen').length;
+  const safetyAlert = containment !== null && containment.overall !== 'all_safe';
   const link = ({ isActive }: { isActive: boolean }) =>
     `rounded-full px-4 py-1.5 text-sm font-extrabold transition ${
       isActive ? 'bg-charcoal text-white' : 'hover:bg-black/5'
@@ -27,6 +29,10 @@ function Nav() {
       </NavLink>
       <NavLink to="/" end className={link}>
         Home
+      </NavLink>
+      <NavLink to="/safety" className={link}>
+        Safety
+        {safetyAlert && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-tier-emergency align-middle" />}
       </NavLink>
       <NavLink to="/insights" className={link}>
         Insights
@@ -51,6 +57,7 @@ export default function App() {
           <main className="mx-auto max-w-4xl px-4 pb-16">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/safety" element={<SafetyCenter />} />
               <Route path="/insights" element={<Insights />} />
               <Route path="/equipment" element={<Equipment />} />
               <Route path="/pets/:petId" element={<PetDetail />} />

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { urgencyRank, type Urgency } from '@connected-care/shared';
 import { useHousehold } from '../state/HouseholdContext';
+import { ContainmentStrip } from '../components/ContainmentStrip';
 import { InsightCard } from '../components/InsightCard';
 import { PetCard } from '../components/PetCard';
 
@@ -34,6 +35,8 @@ export function Dashboard() {
           </p>
         </div>
       )}
+
+      <ContainmentStrip />
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Your pets</h2>

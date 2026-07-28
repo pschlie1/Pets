@@ -1,4 +1,4 @@
-import type { AgentReply, ApiErrorBody, Insight, ScenarioMeta } from '@connected-care/shared';
+import type { AgentReply, ApiErrorBody, ContainmentStatus, Insight, ScenarioMeta } from '@connected-care/shared';
 
 const TOKEN = 'demo-token';
 
@@ -73,6 +73,7 @@ export const HOUSEHOLD_ID = 'hh_2291';
 
 export const api = {
   getHousehold: () => request<HouseholdDetail>(`/v1/households/${HOUSEHOLD_ID}`),
+  getContainment: () => request<ContainmentStatus>(`/v1/households/${HOUSEHOLD_ID}/containment`),
   getPet: (petId: string) => request<PetDetailData>(`/v1/pets/${petId}`),
   getPetMetrics: (petId: string, metric: string, days = 14) =>
     request<MetricSeries>(`/v1/pets/${petId}/metrics?metric=${metric}&days=${days}`),
