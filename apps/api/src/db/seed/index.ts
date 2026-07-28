@@ -174,6 +174,7 @@ export function seedAll(db: Db, now: number = Date.now()): void {
 export function resetAll(db: Db, now: number = Date.now()): void {
   db.transaction(() => {
     for (const table of [
+      'vet_shares', // references pets + households; must go before both (no CASCADE)
       'insights',
       'telemetry_events',
       'pet_baselines',

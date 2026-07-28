@@ -40,3 +40,8 @@ export const agentQuerySchema = z.object({
   pet_id: z.string().min(1),
   question: z.string().min(1).max(2000),
 });
+
+export const vetShareSchema = z.object({
+  recipient: z.string().min(1).max(200),
+  method: z.enum(['portal', 'email', 'link']),
+});

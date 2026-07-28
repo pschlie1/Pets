@@ -138,6 +138,20 @@ CREATE INDEX IF NOT EXISTS idx_insights_household_time ON insights(household_id,
 CREATE INDEX IF NOT EXISTS idx_insights_pet ON insights(pet_id) WHERE pet_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_insights_dedupe ON insights(dedupe_key) WHERE dedupe_key IS NOT NULL;
 
+-- Vet sharing: a share is a recorded hand-off of the live report, not a
+-- stored snapshot. insight_ids is TEXT-holding-JSON (parsed in the route).
+CREATE TABLE IF NOT EXISTS vet_shares (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL REFERENCES households(id),
+    pet_id TEXT NOT NULL REFERENCES pets(id),
+    recipient TEXT NOT NULL,
+    method TEXT NOT NULL CHECK (method IN ('portal', 'email', 'link')),
+    insight_ids TEXT NOT NULL DEFAULT '[]',
+    shared_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_vet_shares_pet ON vet_shares(pet_id, shared_at DESC);
+
 -- Shared by location, not tenant-scoped.
 CREATE TABLE IF NOT EXISTS environmental_context (
     id TEXT PRIMARY KEY,

@@ -107,6 +107,55 @@ export interface AgentReply {
   data_window_days: number;
 }
 
+export interface VetShare {
+  id: string;
+  household_id: string;
+  pet_id: string;
+  recipient: string;
+  method: 'portal' | 'email' | 'link';
+  insight_ids: string[];
+  shared_at: string;
+}
+
+export interface VetReportMetricSeries {
+  metric: string;
+  points: { days_ago: number; value: number }[];
+  baseline: { mean: number; stdev: number; status: string } | null;
+}
+
+/** The live vet report — assembled at GET time, never persisted. Only shares persist. */
+export interface VetReport {
+  report_id: string;
+  generated_at: string;
+  window_days: number;
+  pet: {
+    id: string;
+    name: string;
+    species: Species;
+    breed_name: string | null;
+    breed_reference_confidence: 'high' | 'low';
+    date_of_birth: string | null;
+    age_years: number | null;
+    weight_lbs: number | null;
+    sex: string | null;
+  };
+  breed: {
+    breed_name: string | null;
+    size_class: string;
+    resting_hr_low: number;
+    resting_hr_high: number;
+    common_conditions: BreedCondition[];
+    is_generic_fallback: boolean;
+  } | null;
+  summary: { text: string; mode: 'claude' | 'template' };
+  baselines: PetBaseline[];
+  metrics: VetReportMetricSeries[];
+  active_insights: Insight[];
+  containment: { state: string; minutes_since_check_in: number | null; battery_pct: number | null } | null;
+  environment: { date: string; low_f: number | null; high_f: number | null; conditions: string | null } | null;
+  shares: VetShare[];
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;
