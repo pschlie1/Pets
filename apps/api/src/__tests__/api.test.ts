@@ -193,6 +193,74 @@ describe('demo tier → insight pipeline (full stack, template narration)', () =
   });
 });
 
+describe('vet report', () => {
+  it('assembles the full report with template-mode summary', async () => {
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+    const res = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    expect(res.status).toBe(200);
+    const report = res.body.data;
+    expect(report.pet.name).toBe('Baxter');
+    expect(report.metrics.length).toBe(5);
+    expect(report.summary.mode).toBe('template');
+    expect(report.summary.text).toMatch(/14 days/);
+    expect(report.summary.text).toMatch(/not a diagnosis/);
+    expect(report.breed.common_conditions.length).toBeGreaterThan(0);
+    expect(report.shares).toEqual([]);
+  });
+
+  it('404s for an unknown pet', async () => {
+    const res = await request(app).get('/v1/pets/pet_ghost/vet-report').set(...AUTH);
+    expect(res.status).toBe(404);
+  });
+
+  it('records a digital share and returns it in subsequent reports', async () => {
+    const share = await request(app)
+      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .set(...AUTH)
+      .send({ recipient: 'Lincoln Park Veterinary Clinic', method: 'portal' });
+    expect(share.status).toBe(201);
+    expect(share.body.data.recipient).toBe('Lincoln Park Veterinary Clinic');
+    expect(Array.isArray(share.body.data.insight_ids)).toBe(true);
+    expect(share.body.data.shared_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    expect(report.body.data.shares.length).toBe(1);
+    expect(report.body.data.shares[0].method).toBe('portal');
+  });
+
+  it('rejects a malformed share request', async () => {
+    const res = await request(app)
+      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .set(...AUTH)
+      .send({ method: 'carrier_pigeon' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('validation_error');
+  });
+
+  it('excludes dismissed insights from the report, keeps acknowledged ones', async () => {
+    const trigger = await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_baxter_heart`)
+      .set(...AUTH);
+    const insights = trigger.body.data.insights as { id: string; urgency: string }[];
+    const urgent = insights.find((i) => i.urgency === 'urgent')!;
+    const other = insights.find((i) => i.id !== urgent.id);
+
+    await request(app).post(`/v1/insights/${urgent.id}/dismiss`).set(...AUTH);
+    if (other) await request(app).post(`/v1/insights/${other.id}/acknowledge`).set(...AUTH);
+
+    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    const ids = report.body.data.active_insights.map((i: { id: string }) => i.id);
+    expect(ids).not.toContain(urgent.id);
+    if (other) expect(ids).toContain(other.id);
+  });
+
+  it('reset clears share history', async () => {
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    expect(report.body.data.shares).toEqual([]);
+  });
+});
+
 describe('containment (Safety Center)', () => {
   const getContainment = () => request(app).get(`/v1/households/${REF.householdId}/containment`).set(...AUTH);
 

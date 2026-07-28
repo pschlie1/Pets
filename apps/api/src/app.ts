@@ -9,6 +9,7 @@ import { demoRoutes } from './routes/demo';
 import { householdRoutes } from './routes/households';
 import { insightRoutes } from './routes/insights';
 import { telemetryRoutes } from './routes/telemetry';
+import { vetReportRoutes } from './routes/vetReport';
 import { SseHub } from './sse/hub';
 
 /**
@@ -40,6 +41,7 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
   app.use('/v1', breedRoutes(db));
   app.use('/v1', insightRoutes(db));
   app.use('/v1', agentRoutes(db));
+  app.use('/v1', vetReportRoutes(db));
   app.use('/v1', demoRoutes(db, onInsight));
 
   app.use(errorHandler);

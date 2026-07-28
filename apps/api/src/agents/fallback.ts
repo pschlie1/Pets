@@ -8,7 +8,7 @@ import type { PetContext } from './context';
  * agent would see — grounded, just not generated.
  */
 
-const METRIC_LABELS: Record<string, string> = {
+export const METRIC_LABELS: Record<string, string> = {
   resting_heart_rate: 'resting heart rate',
   walk_minutes: 'daily walk time',
   water_intake_ml: 'water intake',
@@ -21,8 +21,109 @@ const METRIC_LABELS: Record<string, string> = {
   collar_battery_pct: 'collar battery',
 };
 
-function label(metric: string): string {
+export function label(metric: string): string {
   return METRIC_LABELS[metric] ?? metric.replace(/_/g, ' ');
+}
+
+/** Structured input for the vet summary template — mirrors what Claude sees. */
+export interface VetSummaryInput {
+  petName: string;
+  species: string;
+  breedName: string | null;
+  ageYears: number | null;
+  weightLbs: number | null;
+  sex: string | null;
+  windowDays: number;
+  deltas: {
+    metric: string;
+    latest: number;
+    mean: number;
+    stdev: number;
+    sigma: number;
+    pct: number;
+    status: string;
+  }[];
+  insights: { urgency: string; summary: string }[];
+  breed: {
+    restingHrLow: number;
+    restingHrHigh: number;
+    conditions: { condition: string; typical_onset: string }[];
+    isGenericFallback: boolean;
+  } | null;
+  containmentState: string | null;
+}
+
+/**
+ * Deterministic vet summary: neutral clinical register, every number
+ * interpolated from real data, explicitly not a diagnosis.
+ */
+export function vetSummaryTemplate(input: VetSummaryInput): string {
+  const { petName } = input;
+  const sentences: string[] = [];
+
+  const age = input.ageYears !== null ? `${input.ageYears}-year-old ` : '';
+  const sex = input.sex ? `${input.sex} ` : '';
+  const breed = input.breedName ?? `${input.species} (breed not specified)`;
+  const weight = input.weightLbs !== null ? `, ${input.weightLbs} lbs` : '';
+  sentences.push(
+    `${petName} is a ${age}${sex}${breed}${weight}. ` +
+      `This summary covers device-recorded patterns from the last ${input.windowDays} days of consumer monitoring devices; it is not a diagnosis.`,
+  );
+
+  const established = input.deltas.filter((d) => d.status === 'established');
+  const deviating = established.filter((d) => d.sigma > 1);
+  const insufficient = input.deltas.filter((d) => d.status !== 'established');
+
+  if (deviating.length > 0) {
+    for (const d of deviating) {
+      const dir = d.latest >= d.mean ? 'above' : 'below';
+      sentences.push(
+        `Daily ${label(d.metric)} is currently ${d.latest} against a personal baseline of ${d.mean} (±${d.stdev}), ` +
+          `${Math.abs(d.pct)}% ${dir} baseline (${d.sigma.toFixed(1)} standard deviations).`,
+      );
+    }
+  } else if (established.length > 0) {
+    sentences.push(
+      `All monitored metrics — ${established.map((d) => label(d.metric)).join(', ')} — are currently within one standard deviation of ${petName}'s personal baselines.`,
+    );
+  }
+  if (insufficient.length > 0) {
+    sentences.push(
+      `${insufficient.map((d) => label(d.metric)).join(', ')} ${insufficient.length === 1 ? 'lacks' : 'lack'} a reliable baseline (insufficient data) and ${insufficient.length === 1 ? 'is' : 'are'} not interpreted here.`,
+    );
+  }
+
+  if (input.insights.length > 0) {
+    const top = input.insights[0];
+    sentences.push(
+      `There ${input.insights.length === 1 ? 'is 1 active system insight' : `are ${input.insights.length} active system insights`}; the highest is at the ${top.urgency} tier: ${top.summary}`,
+    );
+  } else {
+    sentences.push('There are no active system insights.');
+  }
+
+  if (input.breed) {
+    const conditions = input.breed.conditions
+      .map((c) => `${c.condition} (${c.typical_onset})`)
+      .join('; ');
+    sentences.push(
+      `Breed reference resting heart rate range: ${input.breed.restingHrLow}–${input.breed.restingHrHigh} bpm.` +
+        (conditions ? ` Predispositions on file: ${conditions}.` : '') +
+        (input.breed.isGenericFallback
+          ? ' Note: reference values use a species-generic profile (reduced confidence).'
+          : ''),
+    );
+  }
+
+  if (input.containmentState && input.containmentState !== 'protected') {
+    sentences.push(
+      input.containmentState === 'breach'
+        ? `Containment note: the pet is currently reported outside the containment boundary.`
+        : `Containment note: the containment collar has not checked in recently; boundary status is unverified.`,
+    );
+  }
+
+  return sentences.join(' ');
 }
 
 export function narratorTemplate(input: NarratorInput): { summary: string; recommendedAction: string } {
@@ -142,7 +243,7 @@ export function companionTemplate(ctx: PetContext, question: string): string {
   const urgentInsights = ctx.recentInsights.filter((i) => i.urgency === 'urgent' || i.urgency === 'emergency');
   const vetNote =
     urgentInsights.length > 0
-      ? ` Because there is an active ${urgentInsights[0].urgency} insight for ${name}, please contact your veterinarian to discuss it.`
+      ? ` Because there is an active ${urgentInsights[0].urgency} insight for ${name}, please contact your veterinarian to discuss it. You can open a shareable vet report from ${name}'s profile page.`
       : '';
 
   if (/fence|boundary|yard|collar|contain|safe zone|escape/.test(q)) {
@@ -197,7 +298,7 @@ export function companionTemplate(ctx: PetContext, question: string): string {
   }
   if (/how is|how'?s|doing|okay|ok\b|worried|health/.test(q)) {
     if (urgentInsights.length > 0) {
-      return `There is something worth your attention: ${urgentInsights[0].summary} Please contact your veterinarian to discuss it — this is pattern detection from device data ${windowNote}, not a diagnosis.`;
+      return `There is something worth your attention: ${urgentInsights[0].summary} Please contact your veterinarian to discuss it — this is pattern detection from device data ${windowNote}, not a diagnosis. You can open a shareable vet report from ${name}'s profile page to bring the data with you.`;
     }
     const attention = ctx.recentInsights.find((i) => i.urgency === 'attention');
     if (attention) {
