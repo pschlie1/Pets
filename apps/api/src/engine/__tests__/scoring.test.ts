@@ -153,3 +153,26 @@ describe('scoreMetric — pipeline mechanics', () => {
     expect(result.urgency).toBe('urgent');
   });
 });
+
+describe('containment safety events', () => {
+  it('signal loss scores as attention — verification lost, not a breach', () => {
+    const result = scoreSafetyEvent({ eventType: 'signal_lost', minutesSinceCheckIn: 120 });
+    expect(result.urgency).toBe('attention');
+    expect(result.factors.join(' ')).toMatch(/cannot be verified/);
+  });
+
+  it('a brief breach with motion and safe return scores as monitor', () => {
+    const result = scoreSafetyEvent({ eventType: 'breach_safe_return', minutesOutsideZone: 7, motionDetected: true });
+    expect(result.urgency).toBe('monitor');
+  });
+
+  it('an active breach with motion is still urgent after the union refactor', () => {
+    const result = scoreSafetyEvent({ eventType: 'boundary_breach', minutesOutsideZone: 3, motionDetected: true });
+    expect(result.urgency).toBe('urgent');
+  });
+
+  it('breach + extended no-motion remains the only emergency path', () => {
+    const result = scoreSafetyEvent({ eventType: 'boundary_breach', minutesOutsideZone: 22, motionDetected: false });
+    expect(result.urgency).toBe('emergency');
+  });
+});

@@ -11,8 +11,8 @@ Built against the Connected Care PRD v1.0 and API architecture note. The demo ru
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  PRESENTATION TIER  ·  apps/web  ·  React + Vite + Tailwind         │
-│  Dashboard · Pet detail · Insights feed · Companion chat ·          │
-│  Equipment health · Demo control panel   (PetSafe look & feel)      │
+│  Dashboard · Safety Center (live yard map) · Pet detail ·           │
+│  Insights feed · Companion chat · Equipment health · Demo panel     │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │  HTTP JSON  +  SSE stream (/v1/…)
 ┌──────────────────────────────┴──────────────────────────────────────┐
@@ -77,7 +77,10 @@ insights are computed and narrated live, not scripted.
 | 4 | **Chicago cold snap** (attention) | *The differentiator:* both dogs drop together, weather explains it, sibling check prevents two alarms — one calm insight instead |
 | 5 | **Fountain filter wearing out** (attention) | Same pipeline flags equipment wear → filter order suggestion |
 | 6 | **Baxter's heart rate trend** (urgent) | Sibling divergence upgrades severity; breed cardiac risk at age 9 → vet recommendation. Open Baxter's page: the sparkline shows the rise above his yellow baseline band. Open chat: "How is Baxter doing?" → grounded answer + vet guidance |
-| 7 | **Boundary breach + no motion** (emergency) | Toast fires in real time (SSE), dashboard goes red, **Associate alerted** chip shows the dealer routing |
+| 7 | **Brief breach, safe return** (monitor) | Open the **Safety Center** first: both dogs live on the yard map inside the dashed-yellow fence. Baxter slips out but keeps moving and returns — one calm logged note, no alarm. Tiering restraint on the safety side |
+| 8 | **Collar signal lost** (attention) | Wrigley ghosts on the map with a "?", her card flips to *Signal lost*, dashboard strip goes amber: an honest "containment unverified" instead of a false all-clear |
+| 9 | **Collar battery critical** (urgent) | The PRD's line made demonstrable: a dying collar battery is a maintenance ticket right up until it's a safety gap — urgency reflects the containment exposure |
+| 10 | **Boundary breach + no motion** (emergency) | The finale: toast fires in real time (SSE), the map zooms out to show Wrigley pinned outside the fence with a pulsing red halo, dashboard strip goes red, **Associate alerted** chip shows the dealer routing |
 
 ## How the insight engine decides (the core differentiator)
 
@@ -97,6 +100,33 @@ Severity maps to five urgency tiers — `info · monitor · attention · urgent 
 weighted by documented breed risks (a Cavalier's heart-rate trend at age 9 scores higher than
 the same numbers on a young Labrador). Emergency is reserved for safety events: boundary
 breach with no motion routes to the dealer associate queue in parallel with the owner push.
+
+## The Safety Center (containment, made visible)
+
+The Invisible Fence containment system is the brand's safety value proposition, so it gets
+its own surface at `/safety`, powered by `GET /v1/households/{id}/containment`:
+
+- **Live yard map** — the boundary polygon (dashed brand-yellow = the invisible fence wire)
+  with each dog positioned from its collar's GPS `boundary_check` events. A breached pet
+  pulls the view out and renders outside the fence with a pulsing halo; a silent collar
+  renders as a ghost with a "?".
+- **Per-pet containment cards** — Protected / Outside safe zone / Signal lost, minutes since
+  last check-in, collar battery, signal strength.
+- **Boundary activity timeline** — breaches, safe returns, and signal losses over 48 hours.
+- **Dashboard containment strip** — the reassurance-first "🛡️ Containment active" banner
+  that escalates through amber (signal lost, battery) to red (breach).
+
+Two demo-specific mechanisms worth knowing:
+
+- **Yard geometry is a shared constant** (`packages/shared/src/containment.ts`), read by the
+  seed generator, the API, and the map — production would store it on the household record.
+- **Lazy top-up**: seeded GPS data ends at boot, so the containment endpoint synthesizes any
+  missing 15-minute collar check-ins on read (deterministically, seeded per device+interval) —
+  skipping offline collars and unreturned breaches so scenario states persist. Production
+  collars stream continuously; this exists so a seeded demo stays believable on screen.
+- **The system watches the watchers**: signal loss (absence of collar events ≥ 45 min) is
+  detected and surfaced as "containment unverified" rather than a false all-clear, and
+  a collar battery ≤ 20% scores as *urgent* because the exposure is safety, not maintenance.
 
 ## Production notes (deliberate demo simplifications)
 

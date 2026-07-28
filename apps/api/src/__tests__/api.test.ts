@@ -192,3 +192,87 @@ describe('demo tier → insight pipeline (full stack, template narration)', () =
     expect(insights.body.pagination.total).toBe(0);
   });
 });
+
+describe('containment (Safety Center)', () => {
+  const getContainment = () => request(app).get(`/v1/households/${REF.householdId}/containment`).set(...AUTH);
+
+  it('lists the three containment scenarios in the demo catalog', async () => {
+    const res = await request(app).get('/v1/demo/scenarios').set(...AUTH);
+    const keys = res.body.data.map((s: { key: string }) => s.key);
+    expect(keys).toContain('breach_safe_return');
+    expect(keys).toContain('collar_signal_lost');
+    expect(keys).toContain('collar_battery_critical');
+  });
+
+  it('reports both pets protected with fresh check-ins after reset (top-up works)', async () => {
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+    const res = await getContainment();
+    expect(res.status).toBe(200);
+    expect(res.body.data.overall).toBe('all_safe');
+    expect(res.body.data.boundary.polygon.length).toBeGreaterThanOrEqual(6);
+    for (const pet of res.body.data.pets) {
+      expect(pet.containment_state).toBe('protected');
+      expect(pet.zone_status).toBe('inside');
+      expect(pet.minutes_since_check_in).toBeLessThan(20);
+      expect(pet.last_position).toBeTruthy();
+    }
+  });
+
+  it('safe-return scenario yields a monitor insight and the pet ends up back inside', async () => {
+    const res = await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/breach_safe_return`)
+      .set(...AUTH);
+    expect(res.body.data.insights[0].urgency).toBe('monitor');
+    expect(res.body.data.insights[0].insight_type).toBe('pet_safety');
+    const containment = await getContainment();
+    const baxter = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.baxter);
+    expect(baxter.zone_status).toBe('inside');
+  });
+
+  it('signal-lost scenario yields an attention insight, offline device, unknown zone', async () => {
+    const res = await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/collar_signal_lost`)
+      .set(...AUTH);
+    expect(res.body.data.insights[0].urgency).toBe('attention');
+    expect(res.body.data.insights[0].metric).toBe('containment_signal');
+    const containment = await getContainment();
+    const wrigley = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.wrigley);
+    expect(wrigley.device_status).toBe('offline');
+    expect(wrigley.zone_status).toBe('unknown');
+    expect(wrigley.containment_state).toBe('signal_lost');
+    expect(containment.body.data.overall).toBe('degraded');
+  });
+
+  it('battery-critical scenario yields an urgent safety-gap insight and low_battery device', async () => {
+    const res = await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/collar_battery_critical`)
+      .set(...AUTH);
+    expect(res.body.data.insights[0].urgency).toBe('urgent');
+    expect(res.body.data.insights[0].insight_type).toBe('equipment');
+    const containment = await getContainment();
+    const baxter = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.baxter);
+    expect(baxter.battery_pct).toBe(12);
+    expect(baxter.device_status).toBe('low_battery');
+  });
+
+  it('emergency breach pins the pet outside and the top-up does not erase it', async () => {
+    await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/emergency_boundary_breach`)
+      .set(...AUTH);
+    // Two consecutive reads: the breach state must survive the lazy top-up.
+    await getContainment();
+    const containment = await getContainment();
+    const wrigley = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.wrigley);
+    expect(wrigley.zone_status).toBe('outside');
+    expect(wrigley.containment_state).toBe('breach');
+    expect(containment.body.data.overall).toBe('alert');
+    const kinds = containment.body.data.recent_events.map((e: { kind: string }) => e.kind);
+    expect(kinds).toContain('breach');
+  });
+
+  it('reset returns containment to all_safe', async () => {
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+    const res = await getContainment();
+    expect(res.body.data.overall).toBe('all_safe');
+  });
+});
