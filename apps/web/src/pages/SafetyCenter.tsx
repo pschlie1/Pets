@@ -16,7 +16,7 @@ function SignalBars({ strength }: { strength: number | null }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <span
           key={i}
-          className={`w-1 rounded-sm ${i <= (strength ?? 0) ? 'bg-charcoal' : 'bg-gray-200'}`}
+          className={`w-1 rounded-sm ${i <= (strength ?? 0) ? 'bg-navy' : 'bg-gray-200'}`}
           style={{ height: `${4 + i * 2}px` }}
         />
       ))}

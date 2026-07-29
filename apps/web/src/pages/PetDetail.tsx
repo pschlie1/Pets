@@ -53,7 +53,7 @@ export function PetDetail() {
           </Link>
           <Link
             to={`/pets/${pet.id}/chat`}
-            className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-charcoal shadow-sm hover:bg-brand-dark"
+            className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-brand-ink shadow-sm hover:bg-brand-dark"
           >
             💬 Ask about {pet.name}
           </Link>

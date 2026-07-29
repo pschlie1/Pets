@@ -1,19 +1,25 @@
 @import 'tailwindcss';
-@import '@fontsource/nunito/400.css';
-@import '@fontsource/nunito/600.css';
-@import '@fontsource/nunito/700.css';
-@import '@fontsource/nunito/800.css';
+@import '@fontsource/mulish/400.css';
+@import '@fontsource/mulish/600.css';
+@import '@fontsource/mulish/700.css';
+@import '@fontsource/mulish/900.css';
 
 /* PetSafe brand tokens — the whole brand lives in this block.
+   Values pixel-sampled from the petsafe.com brand capture: navy-first with
+   yellow CTAs. Typeface: Mulish (free stand-in for Museo Sans, the brand face).
    Every color on every screen derives from these tokens; no component may
    use raw Tailwind palette shades or hardcoded hex. */
 @theme {
-  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Mulish', ui-sans-serif, system-ui, sans-serif;
 
-  --color-brand: #ffc72c; /* PetSafe yellow */
-  --color-brand-dark: #eab308;
-  --color-charcoal: #2b2b2b;
-  --color-cream: #fbf8f3;
+  --color-brand: #ffeb00; /* PetSafe yellow — logo lozenge, primary CTAs */
+  --color-brand-ink: #031327; /* the only text color the brand puts on yellow */
+  --color-brand-dark: #d9c400; /* derived darker yellow: strokes + hovers */
+  --color-navy: #083874; /* PetSafe navy — header band, headlines, wordmark */
+  --color-navy-bright: #174b93; /* secondary navy section bands */
+  --color-action: #3672d1; /* link / interactive blue */
+  --color-charcoal: #131a26; /* cool near-black body text */
+  --color-cream: #f2f4f8; /* cool light-grey page background */
   --color-card: #ffffff;
 
   /* The one "all good" green, everywhere a safe/healthy state appears. */
@@ -34,7 +40,7 @@
   --color-tier-emergency-soft: #fdeaea;
 
   /* Yard map surfaces (Safety Center SVG reads these via var()). */
-  --color-yard-ground: #f2ecdf;
+  --color-yard-ground: #eef1f5;
   --color-yard-grass: #ddefd8;
 
   --radius-2xl: 1.25rem;
@@ -44,6 +50,15 @@ body {
   background-color: var(--color-cream);
   color: var(--color-charcoal);
   font-family: var(--font-sans);
+}
+
+/* Brand headlines are navy, like the site's. Layered so color utilities
+   (e.g. a yellow title on a navy card) can still override. */
+@layer base {
+  h1,
+  h2 {
+    color: var(--color-navy);
+  }
 }
 
 /* The vet report prints as a clean digital document: white page, and the

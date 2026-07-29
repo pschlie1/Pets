@@ -34,7 +34,7 @@ export function Insights() {
             setMinTier(null);
             setPage(1);
           }}
-          className={`rounded-full px-3 py-1 text-xs font-bold ${minTier === null ? 'bg-charcoal text-white' : 'bg-card shadow-sm hover:bg-cream'}`}
+          className={`rounded-full px-3 py-1 text-xs font-bold ${minTier === null ? 'bg-navy text-white' : 'bg-card shadow-sm hover:bg-cream'}`}
         >
           All tiers
         </button>

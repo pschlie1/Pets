@@ -11,7 +11,7 @@ export function Sparkline({
   baseline,
   width = 240,
   height = 56,
-  stroke = 'var(--color-charcoal)',
+  stroke = 'var(--color-navy)',
   interactive = false,
   unit = '',
 }: {
@@ -85,7 +85,7 @@ export function Sparkline({
               y1={2}
               x2={x(hover)}
               y2={height - 2}
-              stroke="var(--color-charcoal)"
+              stroke="var(--color-navy)"
               strokeWidth={1}
               opacity={0.3}
             />
@@ -95,7 +95,7 @@ export function Sparkline({
       </svg>
       {hovered && hover !== null && (
         <div
-          className="pointer-events-none absolute -top-7 rounded-full bg-charcoal px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-white"
+          className="pointer-events-none absolute -top-7 rounded-full bg-navy px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-white"
           style={{
             left: Math.min(Math.max(x(hover), 30), width - 30),
             transform: 'translateX(-50%)',

@@ -17,13 +17,15 @@ function Nav() {
   const safetyAlert = containment !== null && containment.overall !== 'all_safe';
   const link = ({ isActive }: { isActive: boolean }) =>
     `whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-extrabold transition sm:px-4 ${
-      isActive ? 'bg-charcoal text-white' : 'hover:bg-black/5'
+      isActive ? 'bg-brand text-brand-ink' : 'text-white hover:bg-white/10'
     }`;
 
   return (
-    <nav className="mx-auto flex max-w-4xl items-center gap-1 overflow-x-auto px-4 py-3 print:hidden">
-      <NavLink to="/" className="mr-2 flex shrink-0 items-center gap-2 text-lg font-extrabold sm:mr-3">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-lg shadow-sm" aria-hidden>
+    // The brand's signature navy header band, straight from petsafe.com.
+    <nav className="bg-navy print:hidden">
+      <div className="mx-auto flex max-w-4xl items-center gap-1 overflow-x-auto px-4 py-3">
+      <NavLink to="/" className="mr-2 flex shrink-0 items-center gap-2 text-lg font-extrabold text-white sm:mr-3">
+        <span className="grid h-9 w-11 place-items-center rounded-xl bg-brand text-lg shadow-sm" aria-hidden>
           🐾
         </span>
         <span className="hidden whitespace-nowrap md:inline">Connected Care</span>
@@ -38,12 +40,13 @@ function Nav() {
       <NavLink to="/insights" className={link}>
         Insights
         {unseen > 0 && (
-          <span className="ml-1.5 rounded-full bg-brand px-1.5 text-xs text-charcoal">{unseen}</span>
+          <span className="ml-1.5 rounded-full bg-brand px-1.5 text-xs text-brand-ink">{unseen}</span>
         )}
       </NavLink>
       <NavLink to="/equipment" className={link}>
         Equipment
       </NavLink>
+      </div>
     </nav>
   );
 }
@@ -55,7 +58,7 @@ export default function App() {
         <DemoBanner />
         <div>
           <Nav />
-          <main className="mx-auto max-w-4xl px-4 pb-16">
+          <main className="mx-auto max-w-4xl px-4 pb-16 pt-5">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/safety" element={<SafetyCenter />} />

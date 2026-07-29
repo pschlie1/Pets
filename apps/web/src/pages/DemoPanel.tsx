@@ -47,7 +47,7 @@ export function DemoPanel() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl bg-charcoal p-5 text-white shadow-md">
+      <header className="rounded-2xl bg-navy p-5 text-white shadow-md">
         <h1 className="text-2xl font-extrabold text-brand">🧪 Demo control panel</h1>
         <p className="mt-1 text-sm opacity-80">
           Every trigger writes real telemetry through the same pipeline production devices use — the insights you'll see
@@ -63,7 +63,7 @@ export function DemoPanel() {
               }, 'reset')
             }
             disabled={busy !== null}
-            className="rounded-full bg-brand px-5 py-2 font-extrabold text-charcoal hover:bg-brand-dark disabled:opacity-40"
+            className="rounded-full bg-brand px-5 py-2 font-extrabold text-brand-ink hover:bg-brand-dark disabled:opacity-40"
           >
             {busy === 'reset' ? 'Resetting…' : '↺ Reset demo household'}
           </button>
@@ -85,7 +85,7 @@ export function DemoPanel() {
             <button
               onClick={() => void trigger(s)}
               disabled={busy !== null}
-              className="mt-3 self-start rounded-full bg-charcoal px-4 py-2 text-sm font-extrabold text-white hover:opacity-85 disabled:opacity-40"
+              className="mt-3 self-start rounded-full bg-navy px-4 py-2 text-sm font-extrabold text-white hover:opacity-85 disabled:opacity-40"
             >
               {busy === s.key ? 'Injecting telemetry…' : '▶ Trigger scenario'}
             </button>

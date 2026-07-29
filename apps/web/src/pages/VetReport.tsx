@@ -85,7 +85,7 @@ export function VetReport() {
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <button
           onClick={() => setShareOpen(true)}
-          className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-charcoal shadow-sm hover:bg-brand-dark"
+          className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-brand-ink shadow-sm hover:bg-brand-dark"
         >
           📤 Send to my vet
         </button>
@@ -127,7 +127,7 @@ export function VetReport() {
               data
             </p>
           </div>
-          <span className="ml-auto rounded-full bg-charcoal px-2.5 py-1 text-[10px] font-bold tracking-widest text-brand">
+          <span className="ml-auto rounded-full bg-navy px-2.5 py-1 text-[10px] font-bold tracking-widest text-brand">
             DEMO
           </span>
         </header>

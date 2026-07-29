@@ -76,8 +76,8 @@ export function YardMap({ boundary, pets }: { boundary: YardGeometry; pets: Cont
         strokeLinejoin="round"
       />
       {/* Boundary transmitter at the first vertex (nearest the house) */}
-      <circle cx={gate.x} cy={gate.y} r={6} fill="var(--color-charcoal)" />
-      <circle cx={gate.x} cy={gate.y} r={10} fill="none" stroke="var(--color-charcoal)" strokeWidth={1} opacity={0.35} />
+      <circle cx={gate.x} cy={gate.y} r={6} fill="var(--color-navy)" />
+      <circle cx={gate.x} cy={gate.y} r={10} fill="none" stroke="var(--color-navy)" strokeWidth={1} opacity={0.35} />
 
       {/* Decoration at fixed spots relative to the yard */}
       <text x={gate.x - 8} y={gate.y - 14} fontSize={22} aria-hidden>
@@ -99,7 +99,7 @@ export function YardMap({ boundary, pets }: { boundary: YardGeometry; pets: Cont
           ? 'var(--color-tier-emergency)'
           : ghost
             ? 'var(--color-tier-info)'
-            : 'var(--color-charcoal)';
+            : 'var(--color-navy)';
         // Nudge labels apart if two pets overlap
         const labelY = y + 30 + (idx % 2) * 4;
         return (
@@ -125,7 +125,7 @@ export function YardMap({ boundary, pets }: { boundary: YardGeometry; pets: Cont
               textAnchor="middle"
               fontSize={11}
               fontWeight={800}
-              fill={breach ? 'var(--color-tier-emergency)' : 'var(--color-charcoal)'}
+              fill={breach ? 'var(--color-tier-emergency)' : 'var(--color-navy)'}
             >
               {pet.name}
             </text>

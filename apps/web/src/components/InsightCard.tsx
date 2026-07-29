@@ -32,7 +32,7 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
           ))}
         <span className="text-xs text-gray-500 capitalize">{insight.insight_type.replace('_', ' ')}</span>
         {Boolean(insight.routed_to_associate) && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-charcoal px-2.5 py-0.5 text-xs font-bold text-brand">
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-navy px-2.5 py-0.5 text-xs font-bold text-brand">
             🚚 Associate alerted
           </span>
         )}
@@ -50,7 +50,7 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
           insight.pet_id && (
             <Link
               to={`/pets/${insight.pet_id}/vet-report`}
-              className="rounded-full bg-brand px-3 py-1 font-bold text-charcoal hover:bg-brand-dark"
+              className="rounded-full bg-brand px-3 py-1 font-bold text-brand-ink hover:bg-brand-dark"
             >
               📤 Share with vet
             </Link>
@@ -59,7 +59,7 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
           <span className="ml-auto flex gap-2">
             <button
               onClick={() => void act('acknowledge')}
-              className="rounded-full bg-charcoal px-3 py-1 font-bold text-white hover:opacity-80"
+              className="rounded-full bg-navy px-3 py-1 font-bold text-white hover:opacity-80"
             >
               Got it
             </button>

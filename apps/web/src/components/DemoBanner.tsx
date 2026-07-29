@@ -7,11 +7,11 @@ import { Link } from 'react-router-dom';
  */
 export function DemoBanner() {
   return (
-    <div className="sticky top-0 z-50 flex items-center justify-center gap-3 bg-charcoal px-4 py-1.5 text-xs font-bold tracking-widest text-brand print:hidden">
+    <div className="sticky top-0 z-50 flex items-center justify-center gap-3 bg-brand-ink px-4 py-1.5 text-xs font-bold tracking-widest text-brand print:hidden">
       <span aria-hidden>🧪</span>
       <span className="sm:hidden">DEMO ENVIRONMENT</span>
       <span className="hidden sm:inline">DEMO ENVIRONMENT — SEEDED DATA, NOT A LIVE CUSTOMER ACCOUNT</span>
-      <Link to="/demo" className="whitespace-nowrap rounded-full bg-brand px-2 py-0.5 text-charcoal hover:bg-brand-dark">
+      <Link to="/demo" className="whitespace-nowrap rounded-full bg-brand px-2 py-0.5 text-brand-ink hover:bg-brand-dark">
         Demo controls
       </Link>
     </div>

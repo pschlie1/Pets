@@ -59,13 +59,13 @@ export function Dashboard() {
       <section>
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">Latest insights</h2>
-          <Link to="/insights" className="text-sm font-bold text-tier-monitor hover:underline">
+          <Link to="/insights" className="text-sm font-bold text-action hover:underline">
             See all →
           </Link>
         </div>
         {latest.length === 0 ? (
           <p className="rounded-2xl bg-card p-6 text-center text-sm text-gray-400 shadow-sm">
-            Nothing to report — try the <Link to="/demo" className="font-bold text-tier-monitor hover:underline">demo controls</Link> to
+            Nothing to report — try the <Link to="/demo" className="font-bold text-action hover:underline">demo controls</Link> to
             see the insight engine in action. 🐾
           </p>
         ) : (

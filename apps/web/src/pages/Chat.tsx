@@ -86,7 +86,7 @@ export function Chat() {
           <div key={idx} className={`flex ${m.role === 'owner' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
-                m.role === 'owner' ? 'bg-charcoal text-white' : 'bg-card'
+                m.role === 'owner' ? 'bg-navy text-white' : 'bg-card'
               }`}
             >
               {m.text}
@@ -118,7 +118,7 @@ export function Chat() {
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-charcoal disabled:opacity-40"
+          className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-brand-ink disabled:opacity-40"
         >
           Send
         </button>

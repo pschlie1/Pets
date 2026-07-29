@@ -33,7 +33,7 @@ export function ShareDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-charcoal/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy/40 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         {state === 'sent' ? (
           <div className="text-center">
@@ -46,7 +46,7 @@ export function ShareDialog({
             </p>
             <button
               onClick={onClose}
-              className="mt-4 rounded-full bg-charcoal px-5 py-2 font-extrabold text-white hover:opacity-85"
+              className="mt-4 rounded-full bg-navy px-5 py-2 font-extrabold text-white hover:opacity-85"
             >
               Done
             </button>
@@ -79,7 +79,7 @@ export function ShareDialog({
               <button
                 onClick={() => void send()}
                 disabled={state === 'sending' || !recipient.trim()}
-                className="rounded-full bg-brand px-5 py-2 text-sm font-extrabold text-charcoal hover:bg-brand-dark disabled:opacity-40"
+                className="rounded-full bg-brand px-5 py-2 text-sm font-extrabold text-brand-ink hover:bg-brand-dark disabled:opacity-40"
               >
                 {state === 'sending' ? 'Sending…' : 'Send report'}
               </button>
