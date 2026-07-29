@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "apps/web/dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 300,
+      "includeFiles": "{docs/openapi.yaml,apps/api/src/db/schema.sql,node_modules/swagger-ui-dist/*}"
+    }
+  },
+  "rewrites": [
+    { "source": "/v1/:path*", "destination": "/api" },
+    { "source": "/docs", "destination": "/api" },
+    { "source": "/docs/:path*", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

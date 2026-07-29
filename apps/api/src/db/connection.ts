@@ -1,11 +1,17 @@
 import Database from 'better-sqlite3';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export type Db = Database.Database;
 
-const schemaPath = join(dirname(fileURLToPath(import.meta.url)), 'schema.sql');
+// Module-relative in dev; cwd-relative fallback for traced serverless bundles
+// where the file layout may differ from the source tree.
+const schemaCandidates = [
+  join(dirname(fileURLToPath(import.meta.url)), 'schema.sql'),
+  join(process.cwd(), 'apps', 'api', 'src', 'db', 'schema.sql'),
+];
+const schemaPath = schemaCandidates.find(existsSync) ?? schemaCandidates[0];
 
 /**
  * Opens (or creates) the SQLite database and applies the schema idempotently.

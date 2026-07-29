@@ -13,8 +13,13 @@ import { fileURLToPath } from 'node:url';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-// src/routes → apps/api → apps → repo root
-const specPath = join(here, '..', '..', '..', '..', 'docs', 'openapi.yaml');
+// Module-relative (src/routes → repo root) in dev; cwd-relative fallback for
+// traced serverless bundles.
+const specCandidates = [
+  join(here, '..', '..', '..', '..', 'docs', 'openapi.yaml'),
+  join(process.cwd(), 'docs', 'openapi.yaml'),
+];
+const specPath = specCandidates.find(existsSync) ?? specCandidates[0];
 
 const require = createRequire(import.meta.url);
 const swaggerDist = dirname(require.resolve('swagger-ui-dist/package.json'));

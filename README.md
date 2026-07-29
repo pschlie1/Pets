@@ -159,6 +159,28 @@ Two demo-specific mechanisms worth knowing:
   detected and surfaced as "containment unverified" rather than a false all-clear, and
   a collar battery ≤ 20% scores as *urgent* because the exposure is safety, not maintenance.
 
+## Deploying to Vercel
+
+The repo deploys as **one Vercel project at the repo root**: the web tier as a static
+build, the entire Express API as a single serverless function (`api/index.ts`), joined by
+rewrites in `vercel.json`.
+
+**Project settings (Vercel dashboard):**
+1. **Root Directory: leave empty** (the repo root — not `apps/web`, not `apps/api`).
+2. Framework Preset: **Other**. Build command, output directory, and rewrites all come
+   from `vercel.json`.
+3. Environment variables (optional): `ANTHROPIC_API_KEY` for live Claude agents —
+   without it the agents run in grounded template mode, same as local.
+
+**Demo-scale limitations to know:**
+- The SQLite database lives in the function's `/tmp` and seeds on cold start. Each
+  serverless instance has its own copy — state diverges across instances and resets on
+  recycle. Fine for a single-presenter demo; a persistent deployment would point the data
+  tier at hosted Postgres (the schema in `apps/api/src/db/schema.sql` was adapted *from*
+  a Postgres DDL, so the road back is short) or run the server on a long-lived host.
+- SSE streams are bounded by the function's `maxDuration` (300s); the UI's `EventSource`
+  reconnects automatically when a stream recycles.
+
 ## Production notes (deliberate demo simplifications)
 
 - **SQLite instead of Postgres** — the production DDL (enums, RLS tenant isolation, monthly
