@@ -20,7 +20,7 @@ export function householdRoutes(db: Db): Router {
   r.get('/households/:id', (req, res) => {
     const household = db
       .prepare(`SELECT * FROM households WHERE id = ? AND deleted_at IS NULL`)
-      .get(req.params.id);
+      .get(req.params.id) as Record<string, unknown> | undefined;
     if (!household) throw new ApiError(404, 'not_found', 'Household not found.');
     const pets = db
       .prepare(`SELECT * FROM pets WHERE household_id = ? AND deleted_at IS NULL ORDER BY name`)
