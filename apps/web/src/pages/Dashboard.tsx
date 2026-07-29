@@ -1,9 +1,97 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { urgencyRank, type Urgency } from '@connected-care/shared';
+import {
+  urgencyRank,
+  type Briefing,
+  type Milestone,
+  type PeaceOfMindScore,
+  type Urgency,
+} from '@connected-care/shared';
+import { api } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
 import { ContainmentStrip } from '../components/ContainmentStrip';
 import { InsightCard } from '../components/InsightCard';
 import { PetCard } from '../components/PetCard';
+import { ScoreRing } from '../components/ScoreRing';
+
+const GREETING: Record<Briefing['greeting_period'], string> = {
+  morning: '☀️ Good morning',
+  afternoon: '🌤️ Good afternoon',
+  evening: '🌙 Good evening',
+};
+
+/** The engagement hero: narrated briefing + Peace-of-Mind score + wins. */
+function Hero({ insightCount }: { insightCount: number }) {
+  const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [score, setScore] = useState<PeaceOfMindScore | null>(null);
+  const [wins, setWins] = useState<Milestone[]>([]);
+
+  // Refetch whenever the insight set changes (scenario, ack, reset) so the
+  // score and narration always match the screens below.
+  useEffect(() => {
+    void api.getBriefing().then(setBriefing).catch(() => setBriefing(null));
+    void api.getScore().then(setScore).catch(() => setScore(null));
+    void api.getMilestones().then(setWins).catch(() => setWins([]));
+  }, [insightCount]);
+
+  return (
+    <>
+      <section className="grid gap-4 sm:grid-cols-[1fr_auto]">
+        <div className="rounded-2xl bg-card p-5 shadow-sm">
+          <h2 className="font-extrabold">{briefing ? GREETING[briefing.greeting_period] : '☀️ Your briefing'}</h2>
+          {briefing ? (
+            <>
+              <p className="mt-1 text-sm text-gray-600">{briefing.summary}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {briefing.facts.map((f, i) => (
+                  <span key={i} className="rounded-full bg-cream px-2.5 py-1 text-xs font-semibold text-gray-600">
+                    <span aria-hidden>{f.icon}</span> {f.text}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-gray-400">Putting together the overnight picture…</p>
+          )}
+        </div>
+        <div className="flex items-center justify-center rounded-2xl bg-card p-4 shadow-sm sm:w-44 sm:flex-col">
+          {score ? (
+            <>
+              <ScoreRing score={score.score} band={score.band} />
+              <p className="ml-3 text-xs text-gray-500 sm:ml-0 sm:mt-1 sm:text-center">Peace-of-Mind score</p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">…</p>
+          )}
+        </div>
+      </section>
+      {score && score.factors.some((f) => f.delta !== 0) && (
+        <section className="rounded-2xl bg-card px-5 py-3 text-xs text-gray-600 shadow-sm">
+          {score.factors.map((f, i) => (
+            <p key={i} className="py-0.5">
+              <span className="font-bold text-tier-urgent">{f.delta}</span> · {f.label}
+            </p>
+          ))}
+        </section>
+      )}
+      {wins.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wider text-gray-400">🏆 Wins</h2>
+          <div className="flex flex-wrap gap-2">
+            {wins.map((w, i) => (
+              <div key={i} className="rounded-2xl bg-card px-4 py-2.5 shadow-sm">
+                <p className="text-sm font-extrabold">
+                  <span aria-hidden>{w.icon}</span> {w.title}
+                </p>
+                <p className="text-xs text-gray-500">{w.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
 
 const BANNER: Partial<Record<Urgency, { bg: string; msg: string }>> = {
   urgent: { bg: 'bg-tier-urgent', msg: 'Something needs your attention soon' },
@@ -34,18 +122,9 @@ export function Dashboard() {
         </Link>
       )}
 
-      {allCalm ? (
-        // One combined reassurance card instead of two green cards in a row.
-        <Link to="/safety" className="block rounded-2xl bg-card p-4 shadow-sm ring-2 ring-safe/25 transition hover:shadow-md">
-          <p className="text-lg font-extrabold">💚 The whole crew is doing great</p>
-          <p className="text-sm text-gray-500">
-            Everyone's healthy and inside the safe zone — heart rate, walks, meals, water, and the invisible fence are
-            all being watched, and we'll speak up first. 🛡️
-          </p>
-        </Link>
-      ) : (
-        <ContainmentStrip />
-      )}
+      {!allCalm && <ContainmentStrip />}
+
+      <Hero insightCount={insights.length} />
 
       <section>
         <div className="mb-3 flex items-baseline justify-between">

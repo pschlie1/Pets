@@ -1,15 +1,21 @@
 import type {
   AgentReply,
   ApiErrorBody,
+  Briefing,
   ContainmentStatus,
   DayHistoryResponse,
+  DealerStatus,
   HeatmapResponse,
   Insight,
   LoginResponse,
+  Milestone,
+  Order,
   Owner,
+  PeaceOfMindScore,
   ScenarioMeta,
   VetReport,
   VetShare,
+  VetShareWithStatus,
 } from '@connected-care/shared';
 
 /**
@@ -115,6 +121,14 @@ export const api = {
     ),
   getContainmentHistory: (date: string) =>
     request<DayHistoryResponse>(`/v1/households/${sessionHouseholdId}/containment/history?date=${date}`),
+  getBriefing: () => request<Briefing>(`/v1/households/${sessionHouseholdId}/briefing`),
+  getScore: () => request<PeaceOfMindScore>(`/v1/households/${sessionHouseholdId}/score`),
+  getMilestones: () => request<Milestone[]>(`/v1/households/${sessionHouseholdId}/milestones`),
+  getDealer: () => request<DealerStatus>(`/v1/households/${sessionHouseholdId}/dealer`),
+  getOrders: () => request<Order[]>(`/v1/households/${sessionHouseholdId}/orders`),
+  placeOrder: (deviceId: string, sku: string) =>
+    request<Order>('/v1/orders', { method: 'POST', body: JSON.stringify({ device_id: deviceId, sku }) }),
+  getVetShares: (petId: string) => request<VetShareWithStatus[]>(`/v1/pets/${petId}/vet-report/shares`),
   getPet: (petId: string) => request<PetDetailData>(`/v1/pets/${petId}`),
   getPetMetrics: (petId: string, metric: string, days = 14) =>
     request<MetricSeries>(`/v1/pets/${petId}/metrics?metric=${metric}&days=${days}`),

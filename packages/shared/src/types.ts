@@ -175,3 +175,74 @@ export interface ApiErrorBody {
     details?: unknown;
   };
 }
+
+/* ------------------------- engagement & commerce ------------------------- */
+
+/** The daily briefing: a narrated overnight digest plus the facts behind it. */
+export interface Briefing {
+  household_id: string;
+  greeting_period: 'morning' | 'afternoon' | 'evening';
+  summary: string;
+  facts: { icon: string; text: string }[];
+  mode: 'claude' | 'template';
+  generated_at: string;
+}
+
+export type ScoreBand = 'protected' | 'good' | 'needs_attention' | 'act_now';
+
+/** One 0-100 household read of safety + health + equipment readiness. */
+export interface PeaceOfMindScore {
+  household_id: string;
+  score: number;
+  band: ScoreBand;
+  factors: { label: string; delta: number }[];
+}
+
+/** A win worth celebrating, computed from the telemetry record. */
+export interface Milestone {
+  icon: string;
+  title: string;
+  detail: string;
+  pet_id: string | null;
+}
+
+/** A consumable replacement order placed from an equipment insight. */
+export interface Order {
+  id: string;
+  household_id: string;
+  device_id: string;
+  sku: string;
+  label: string;
+  price_cents: number;
+  status: 'placed';
+  eta_date: string;
+  created_at: string;
+}
+
+export interface Dealer {
+  name: string;
+  associate: string;
+  phone: string;
+}
+
+export type DispatchStep = 'alerted' | 'reviewing' | 'followed_up';
+
+/** The household's dealer plus live dispatch state for a routed emergency. */
+export interface DealerStatus {
+  household_id: string;
+  dealer: Dealer;
+  dispatch: {
+    insight_id: string;
+    summary: string;
+    routed_at: string;
+    step: DispatchStep;
+  } | null;
+}
+
+export type VetShareStage = 'sent' | 'delivered' | 'viewed' | 'reviewed';
+
+/** A vet share with its delivery/review stage (derived server-side). */
+export interface VetShareWithStatus extends VetShare {
+  stage: VetShareStage;
+  clinic_note: string | null;
+}
