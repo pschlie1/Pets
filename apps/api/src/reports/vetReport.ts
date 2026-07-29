@@ -41,7 +41,9 @@ export function activeInsights(db: Db, petId: string): Insight[] {
 export async function buildVetReport(db: Db, petId: string, now: number = Date.now()): Promise<VetReport | null> {
   const pet = db
     .prepare(
-      `SELECT p.*, b.breed_name, b.size_class, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
+      `SELECT p.id, p.household_id, p.name, p.species, p.breed_id, p.breed_reference_confidence,
+              p.date_of_birth, p.weight_lbs, p.sex, (p.photo IS NOT NULL) AS has_photo,
+              b.breed_name, b.size_class, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
        FROM pets p LEFT JOIN breed_profiles b ON b.id = p.breed_id
        WHERE p.id = ? AND p.deleted_at IS NULL`,
     )
@@ -104,6 +106,7 @@ export async function buildVetReport(db: Db, petId: string, now: number = Date.n
       age_years: dob ? Math.floor((now - Date.parse(dob)) / (365.25 * DAY)) : null,
       weight_lbs: pet.weight_lbs as number | null,
       sex: pet.sex as string | null,
+      has_photo: pet.has_photo as number,
     },
     breed: pet.resting_hr_low
       ? {

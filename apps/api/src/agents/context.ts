@@ -42,7 +42,9 @@ export interface PetContext {
 export function buildPetContext(db: Db, petId: string): PetContext | null {
   const pet = db
     .prepare(
-      `SELECT p.*, b.breed_name, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
+      `SELECT p.id, p.household_id, p.name, p.species, p.breed_id, p.breed_reference_confidence,
+              p.date_of_birth, p.weight_lbs, p.sex,
+              b.breed_name, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
        FROM pets p LEFT JOIN breed_profiles b ON b.id = p.breed_id
        WHERE p.id = ? AND p.deleted_at IS NULL`,
     )

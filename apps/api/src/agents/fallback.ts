@@ -201,7 +201,7 @@ export function narratorTemplate(input: NarratorInput): { summary: string; recom
     const breed = input.breedContext ? ` ${input.breedContext}` : '';
     return {
       summary:
-        `${name}'s ${label(input.metric)} has run ${pct}% ${dir} ${name === 'Baxter' ? 'his' : 'their'} own baseline for ${days} days.` +
+        `${name}'s ${label(input.metric)} has run ${pct}% ${dir} ${name === 'Meeko' ? 'his' : 'their'} own baseline for ${days} days.` +
         sibling +
         breed,
       recommendedAction: `Schedule a vet visit and mention the ${label(input.metric)} trend — this pattern is worth a professional look.`,

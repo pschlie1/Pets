@@ -69,7 +69,7 @@ curl -H "$AUTH" 'localhost:3001/v1/pets/pet_5001/metrics?metric=resting_heart_ra
 
 # 5. Ask the companion agent (grounded in household data only)
 curl -X POST -H "$AUTH" -H 'Content-Type: application/json' \
-  localhost:3001/v1/agent/query -d '{"pet_id":"pet_5001","question":"How is Baxter doing?"}'
+  localhost:3001/v1/agent/query -d '{"pet_id":"pet_5001","question":"How is Meeko doing?"}'
 
 # 6. Live containment status (Safety Center payload)
 curl -H "$AUTH" localhost:3001/v1/households/hh_2291/containment
@@ -97,7 +97,7 @@ curl -X POST -H "$AUTH" -H 'Content-Type: application/json' \
 
 # 8. Demo scenarios: list, then trigger one and watch the pipeline work
 curl -H "$AUTH" localhost:3001/v1/demo/scenarios
-curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/scenarios/urgent_baxter_heart
+curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/scenarios/urgent_meeko_heart
 
 # 9. Reset to pristine seed state between demo sessions
 curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/reset
@@ -138,7 +138,7 @@ es.addEventListener('insight', (e) => {
 | Known event types | `boundary_check` · `boundary_event` · `heart_rate_reading` · `activity_session` · `sleep_session` · `drinking_session` · `feeding_session` · `device_health_ping` |
 | Pet metrics | `resting_heart_rate` · `walk_minutes` · `water_intake_ml` · `food_intake_g` · `sleep_hours` |
 | Share methods | `portal` · `email` · `link` |
-| Scenario keys | `info_water_dip` · `monitor_feeder_drift` · `attention_cold_snap` · `attention_fountain_filter` · `urgent_baxter_heart` · `breach_safe_return` · `collar_signal_lost` · `collar_battery_critical` · `emergency_boundary_breach` |
+| Scenario keys | `info_water_dip` · `monitor_feeder_drift` · `attention_cold_snap` · `attention_fountain_filter` · `urgent_meeko_heart` · `breach_safe_return` · `collar_signal_lost` · `collar_battery_critical` · `emergency_boundary_breach` |
 
 ## Demo-tier notes a developer should know
 

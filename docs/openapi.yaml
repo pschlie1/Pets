@@ -207,7 +207,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/CreatePet' }
-            example: { name: Baxter, species: dog, breed_id: breed_ckcs, date_of_birth: '2017-04-12', weight_lbs: 16.2, sex: male }
+            example: { name: Meeko, species: dog, breed_id: breed_ckcs, date_of_birth: '2017-04-12', weight_lbs: 21, sex: male }
       responses:
         '201':
           description: Pet created.
@@ -264,6 +264,32 @@ paths:
               schema:
                 type: object
                 properties: { data: { $ref: '#/components/schemas/Pet' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/pets/{petId}/photo:
+    get:
+      tags: [Pets]
+      summary: Owner-provided profile photo
+      security: []
+      description: >-
+        JPEG bytes. `<img>` tags cannot send an Authorization header, so the
+        session token is accepted as a `token` query parameter (bearer works
+        too) — the same signed-URL pattern as the SSE stream. Pet responses
+        carry `has_photo` so clients know whether to request it.
+      parameters:
+        - { $ref: '#/components/parameters/petId' }
+        - name: token
+          in: query
+          schema: { type: string }
+          description: Session token (alternative to the Authorization header).
+      responses:
+        '200':
+          description: The photo.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -722,7 +748,7 @@ paths:
                 data:
                   greeting_period: morning
                   summary: The whole crew had a good night — fence quiet, everyone on baseline. 💚
-                  facts: [{ icon: '🐾', text: 'Baxter: slept 10.2h, walked 27 min yesterday' }]
+                  facts: [{ icon: '🐾', text: 'Meeko: slept 10.2h, walked 27 min yesterday' }]
                   mode: template
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -783,7 +809,7 @@ paths:
               example:
                 data:
                   dealer: { name: Invisible Fence Brand — Chicago North, associate: Dana M., phone: (312) 555-0148 }
-                  dispatch: { step: alerted, summary: 'Wrigley crossed the boundary…', routed_at: '2026-07-29T14:02:11Z' }
+                  dispatch: { step: alerted, summary: 'Lilo crossed the boundary…', routed_at: '2026-07-29T14:02:11Z' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -860,7 +886,7 @@ paths:
             application/json:
               example:
                 data:
-                  - { id: shr_1, recipient: Lincoln Park Veterinary Clinic, method: portal, stage: reviewed, clinic_note: 'Trend noted — bring Baxter in if it persists this week. — Dr. Chen' }
+                  - { id: shr_1, recipient: Lincoln Park Veterinary Clinic, method: portal, stage: reviewed, clinic_note: 'Trend noted — bring Meeko in if it persists this week. — Dr. Chen' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -885,7 +911,7 @@ paths:
               properties:
                 pet_id: { type: string }
                 question: { type: string, maxLength: 2000 }
-            example: { pet_id: pet_5001, question: "How is Baxter's heart rate trending?" }
+            example: { pet_id: pet_5001, question: "How is Meeko's heart rate trending?" }
       responses:
         '200':
           description: Grounded answer.
@@ -957,7 +983,7 @@ paths:
     post:
       tags: [Demo Tier]
       summary: Seed the reference demo household (idempotent)
-      description: Seeds Baxter & Wrigley with 21 days of deterministic telemetry through the same schema production ingestion uses. No-op if already seeded.
+      description: Seeds Meeko & Lilo with 21 days of deterministic telemetry through the same schema production ingestion uses. No-op if already seeded.
       responses:
         '201':
           description: Seed state.
@@ -1116,7 +1142,7 @@ components:
       description: Event types the engine scores today. Unknown types are stored and flagged, never rejected.
     ScenarioKey:
       type: string
-      enum: [info_water_dip, monitor_feeder_drift, attention_cold_snap, attention_fountain_filter, urgent_baxter_heart, breach_safe_return, collar_signal_lost, collar_battery_critical, emergency_boundary_breach]
+      enum: [info_water_dip, monitor_feeder_drift, attention_cold_snap, attention_fountain_filter, urgent_meeko_heart, breach_safe_return, collar_signal_lost, collar_battery_critical, emergency_boundary_breach]
 
     Error:
       type: object
@@ -1222,7 +1248,7 @@ components:
       properties:
         id: { type: string, example: owner_5001 }
         email: { type: string, format: email, example: peter@connectedcare.demo }
-        display_name: { type: string, example: Peter (Baxter & Wrigley) }
+        display_name: { type: string, example: Peter (Meeko & Lilo) }
         household_id: { type: string, example: hh_2291 }
 
     LoginResponse:
@@ -1273,13 +1299,14 @@ components:
       properties:
         id: { type: string, example: pet_5001 }
         household_id: { type: string, example: hh_2291 }
-        name: { type: string, example: Baxter }
+        name: { type: string, example: Meeko }
         species: { $ref: '#/components/schemas/Species' }
         breed_id: { type: [string, 'null'], example: breed_ckcs }
         breed_reference_confidence: { type: string, enum: [high, low] }
         date_of_birth: { type: [string, 'null'], format: date }
-        weight_lbs: { type: [number, 'null'], example: 16.2 }
+        weight_lbs: { type: [number, 'null'], example: 21 }
         sex: { type: [string, 'null'] }
+        has_photo: { type: integer, description: 'SQLite boolean (0/1) — a profile photo exists at the pet photo endpoint.' }
 
     Device:
       type: object
@@ -1365,7 +1392,7 @@ components:
         metric: { $ref: '#/components/schemas/Metric' }
         severity_score: { type: number }
         urgency: { $ref: '#/components/schemas/Urgency' }
-        summary: { type: string, example: "Baxter's resting heart rate has run 15% above his own baseline for 3 days. Wrigley's readings stay normal over the same period, which rules out a shared household cause." }
+        summary: { type: string, example: "Meeko's resting heart rate has run 15% above his own baseline for 3 days. Lilo's readings stay normal over the same period, which rules out a shared household cause." }
         recommended_action: { type: string, example: Schedule a vet visit and mention the resting heart rate trend. }
         generated_at: { type: string, format: date-time }
         acknowledged_status: { type: string, enum: [unseen, seen, acknowledged, dismissed] }
@@ -1491,7 +1518,7 @@ components:
       type: object
       properties:
         key: { $ref: '#/components/schemas/ScenarioKey' }
-        name: { type: string, example: Baxter's heart rate trend }
+        name: { type: string, example: Meeko's heart rate trend }
         description: { type: string }
         expectedUrgency: { $ref: '#/components/schemas/Urgency' }
         insightType: { $ref: '#/components/schemas/InsightType' }

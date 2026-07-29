@@ -51,6 +51,39 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
     hub.register(claims.household_id, res);
   });
 
+  // Pet profile photos: <img> tags cannot set an Authorization header either,
+  // so the token travels as a query parameter (bearer also accepted). Same
+  // tenant rule as everything else: the pet must be in the caller's household.
+  app.get('/v1/pets/:id/photo', (req, res) => {
+    const bearer = (req.headers.authorization ?? '').startsWith('Bearer ')
+      ? (req.headers.authorization as string).slice(7)
+      : null;
+    const token = typeof req.query.token === 'string' ? req.query.token : bearer;
+    const claims = token ? verifyToken(token) : null;
+    if (!claims) {
+      res.status(401).json({ error: { code: 'unauthorized', message: 'A valid token is required.' } });
+      return;
+    }
+    const pet = db
+      .prepare(`SELECT household_id, photo FROM pets WHERE id = ? AND deleted_at IS NULL`)
+      .get(req.params.id) as { household_id: string; photo: Buffer | null } | undefined;
+    if (!pet) {
+      res.status(404).json({ error: { code: 'not_found', message: 'Pet not found.' } });
+      return;
+    }
+    if (pet.household_id !== claims.household_id) {
+      res.status(403).json({ error: { code: 'forbidden', message: 'This pet belongs to a different household.' } });
+      return;
+    }
+    if (!pet.photo) {
+      res.status(404).json({ error: { code: 'not_found', message: 'No photo on this profile.' } });
+      return;
+    }
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(pet.photo);
+  });
+
   app.use('/v1', authRoutes(db));
   app.use('/v1', requireAuth);
   app.use('/v1', householdRoutes(db));

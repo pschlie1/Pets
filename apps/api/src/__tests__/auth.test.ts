@@ -76,9 +76,9 @@ describe('tenant isolation — one identity can never reach another household', 
   });
 
   it("blocks reading another household's pet, metrics, and vet report", async () => {
-    expect((await asSam(`/v1/pets/${REF.baxter}`)).status).toBe(403);
-    expect((await asSam(`/v1/pets/${REF.baxter}/metrics?metric=resting_heart_rate`)).status).toBe(403);
-    expect((await asSam(`/v1/pets/${REF.baxter}/vet-report`)).status).toBe(403);
+    expect((await asSam(`/v1/pets/${REF.meeko}`)).status).toBe(403);
+    expect((await asSam(`/v1/pets/${REF.meeko}/metrics?metric=resting_heart_rate`)).status).toBe(403);
+    expect((await asSam(`/v1/pets/${REF.meeko}/vet-report`)).status).toBe(403);
     expect((await asPeter(`/v1/pets/${REF2.duke}`)).status).toBe(403);
   });
 
@@ -87,7 +87,7 @@ describe('tenant isolation — one identity can never reach another household', 
       .post('/v1/telemetry/events')
       .set('Authorization', `Bearer ${sam}`)
       .send({
-        device_id: REF.baxterCollar,
+        device_id: REF.meekoCollar,
         event_type: 'heart_rate_reading',
         occurred_at: new Date().toISOString(),
         payload: { bpm: 200 },
@@ -97,7 +97,7 @@ describe('tenant isolation — one identity can never reach another household', 
 
   it("blocks acting on another household's insight", async () => {
     const trigger = await request(app)
-      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_baxter_heart`)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_meeko_heart`)
       .set('Authorization', `Bearer ${peter}`);
     const insightId = trigger.body.data.insights[0].id;
     const res = await request(app).post(`/v1/insights/${insightId}/dismiss`).set('Authorization', `Bearer ${sam}`);
@@ -108,7 +108,7 @@ describe('tenant isolation — one identity can never reach another household', 
     const res = await request(app)
       .post('/v1/agent/query')
       .set('Authorization', `Bearer ${sam}`)
-      .send({ pet_id: REF.baxter, question: 'How is Baxter?' });
+      .send({ pet_id: REF.meeko, question: 'How is Meeko?' });
     expect(res.status).toBe(403);
   });
 
@@ -127,8 +127,28 @@ describe('tenant isolation — one identity can never reach another household', 
 
   it("each identity sees only its own data", async () => {
     const peterHh = await asPeter(`/v1/households/${REF.householdId}`);
-    expect(peterHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Baxter', 'Wrigley']);
+    expect(peterHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Lilo', 'Meeko']);
     const samHh = await asSam(`/v1/households/${REF2.householdId}`);
     expect(samHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Ash', 'Duke']);
+  });
+
+  it('serves profile photos only to the owning household', async () => {
+    // No token → 401; wrong household → 403; owner → JPEG bytes.
+    expect((await request(app).get(`/v1/pets/${REF.meeko}/photo`)).status).toBe(401);
+    expect((await asSam(`/v1/pets/${REF.meeko}/photo`)).status).toBe(403);
+    const ok = await asPeter(`/v1/pets/${REF.meeko}/photo`);
+    expect(ok.status).toBe(200);
+    expect(ok.headers['content-type']).toBe('image/jpeg');
+    expect(ok.body.length).toBeGreaterThan(10_000);
+    // Query-parameter token works too (how <img> tags authenticate).
+    expect((await request(app).get(`/v1/pets/${REF.meeko}/photo?token=${peter}`)).status).toBe(200);
+    // A pet with no photo 404s cleanly.
+    expect((await asSam(`/v1/pets/${REF2.duke}/photo`)).status).toBe(404);
+    // The household payload flags who has a photo — never the bytes.
+    const hh = await asPeter(`/v1/households/${REF.householdId}`);
+    for (const pet of hh.body.data.pets as { has_photo: number; photo?: unknown }[]) {
+      expect(pet.has_photo).toBe(1);
+      expect(pet.photo).toBeUndefined();
+    }
   });
 });

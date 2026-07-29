@@ -68,6 +68,14 @@ export interface PetSummary {
   date_of_birth: string | null;
   weight_lbs: number | null;
   sex: string | null;
+  /** SQLite boolean (0/1): the profile has a photo at /v1/pets/:id/photo. */
+  has_photo: number;
+}
+
+/** <img> tags cannot send an Authorization header, so the session token rides
+ *  along as a query parameter — same signed-URL pattern as the SSE stream. */
+export function petPhotoUrl(petId: string): string {
+  return `/v1/pets/${petId}/photo?token=${encodeURIComponent(sessionToken)}`;
 }
 
 export interface DeviceSummary {

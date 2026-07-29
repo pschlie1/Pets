@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type PetDetailData } from '../api/client';
+import { PetAvatar } from '../components/PetAvatar';
 
 interface Message {
   role: 'owner' | 'agent';
@@ -58,9 +59,7 @@ export function Chat() {
         ← Back to {pet.name}
       </Link>
       <header className="flex items-center gap-3 rounded-t-2xl bg-card p-4 shadow-sm">
-        <span className="grid h-10 w-10 place-items-center rounded-full bg-brand text-xl" aria-hidden>
-          {pet.species === 'dog' ? '🐶' : '🐱'}
-        </span>
+        <PetAvatar petId={pet.id} species={pet.species} hasPhoto={pet.has_photo} size="sm" />
         <div>
           <h1 className="font-extrabold">Ask about {pet.name}</h1>
           <p className="text-xs text-gray-500">Grounded in your household's device data — not a diagnosis.</p>

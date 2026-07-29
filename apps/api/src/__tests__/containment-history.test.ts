@@ -41,7 +41,7 @@ describe('movement heatmap', () => {
     const { status, data } = await heatmap('?days=7');
     expect(status).toBe(200);
     expect(data.bbox).not.toBeNull();
-    expect(data.pets.map((p) => p.name).sort()).toEqual(['Baxter', 'Wrigley']);
+    expect(data.pets.map((p) => p.name).sort()).toEqual(['Lilo', 'Meeko']);
     for (const pet of data.pets) {
       // ~96 checks/day; some may fall on unreturned-breach/offline pauses, so just assert plenty.
       expect(pet.total_points).toBeGreaterThan(300);
@@ -66,9 +66,9 @@ describe('movement heatmap', () => {
   });
 
   it('filters to one pet and 404s an unknown pet', async () => {
-    const one = await heatmap(`?days=7&pet_id=${REF.baxter}`);
+    const one = await heatmap(`?days=7&pet_id=${REF.meeko}`);
     expect(one.data.pets).toHaveLength(1);
-    expect(one.data.pets[0].pet_id).toBe(REF.baxter);
+    expect(one.data.pets[0].pet_id).toBe(REF.meeko);
     const missing = await heatmap('?days=7&pet_id=pet_nope');
     expect(missing.status).toBe(404);
   });
@@ -117,12 +117,12 @@ describe('day movement history', () => {
       .post(`/v1/demo/households/${REF.householdId}/scenarios/emergency_boundary_breach`)
       .set(...AUTH);
     const today = await history(localDate(Date.now()));
-    const wrigley = today.data.pets.find((p) => p.pet_id === REF.wrigley)!;
-    const breach = wrigley.events.find((e) => e.kind === 'breach');
+    const lilo = today.data.pets.find((p) => p.pet_id === REF.lilo)!;
+    const breach = lilo.events.find((e) => e.kind === 'breach');
     expect(breach).toBeDefined();
     expect(breach!.position).not.toBeNull();
     expect(pointInPolygon(breach!.position!, YARD_GEOMETRIES[REF.householdId].polygon)).toBe(false);
-    expect(wrigley.stats.boundary_events).toBeGreaterThan(0);
+    expect(lilo.stats.boundary_events).toBeGreaterThan(0);
     // Clean up for any later suites sharing this db.
     await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
   });

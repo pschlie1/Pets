@@ -39,7 +39,7 @@ describe('scoreMetric — the six PRD showcase scenarios', () => {
     expect(result.urgency).toBe('attention');
   });
 
-  it('S5 urgent: Baxter 15% above HR baseline for 3 days, sibling normal, breed cardiac risk', () => {
+  it('S5 urgent: Meeko 15% above HR baseline for 3 days, sibling normal, breed cardiac risk', () => {
     const result = scoreMetric({
       metric: 'resting_heart_rate',
       value: 110,

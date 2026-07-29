@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { VetReport as VetReportData, VetShare, VetShareStage, VetShareWithStatus } from '@connected-care/shared';
 import { api } from '../api/client';
+import { PetAvatar } from '../components/PetAvatar';
 import { ShareDialog } from '../components/ShareDialog';
 import { TrendCard } from '../components/TrendCard';
 import { UrgencyBadge } from '../components/UrgencyBadge';
@@ -132,9 +133,7 @@ export function VetReport() {
 
       <article className="vet-report rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <header className="flex flex-wrap items-center gap-4 border-b border-black/5 pb-5">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-brand text-3xl" aria-hidden>
-            {report.pet.species === 'dog' ? '🐶' : report.pet.species === 'cat' ? '🐱' : '🐾'}
-          </span>
+          <PetAvatar petId={report.pet.id} species={report.pet.species} hasPhoto={report.pet.has_photo} size="sm" />
           <div>
             <h1 className="text-2xl font-extrabold">{report.pet.name} — Veterinary Report</h1>
             <p className="text-sm text-gray-500">

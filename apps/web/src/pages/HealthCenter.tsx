@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { urgencyRank, type Urgency } from '@connected-care/shared';
-import { api, type MetricSeries, type PetSummary } from '../api/client';
+import { api, petPhotoUrl, type MetricSeries, type PetSummary } from '../api/client';
 import { InsightCard } from '../components/InsightCard';
+import { PetAvatar } from '../components/PetAvatar';
 import { TrendCard } from '../components/TrendCard';
 import { UrgencyBadge } from '../components/UrgencyBadge';
 import { TREND_METRICS } from '../metrics';
@@ -22,9 +23,7 @@ function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | nu
   return (
     <section className="rounded-2xl bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-full bg-brand text-2xl" aria-hidden>
-          {pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}
-        </span>
+        <PetAvatar petId={pet.id} species={pet.species} hasPhoto={pet.has_photo} size="sm" />
         <div>
           <h2 className="font-extrabold">{pet.name}</h2>
           <p className="text-xs text-gray-500">14-day trends vs {pet.name}'s own baseline</p>
@@ -111,7 +110,16 @@ export function HealthCenter() {
                   p.id === pet.id ? 'bg-navy text-white shadow-sm' : 'text-gray-500 hover:bg-black/5'
                 }`}
               >
-                {p.species === 'dog' ? '🐶' : p.species === 'cat' ? '🐱' : '🐾'} {p.name}
+                {p.has_photo ? (
+                  <img
+                    src={petPhotoUrl(p.id)}
+                    alt=""
+                    className="mr-1.5 inline-block h-5 w-5 rounded-full object-cover align-middle"
+                  />
+                ) : (
+                  <span aria-hidden>{p.species === 'dog' ? '🐶' : p.species === 'cat' ? '🐱' : '🐾'} </span>
+                )}
+                {p.name}
                 {concern && urgencyRank(concern) >= urgencyRank('attention') && (
                   <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-tier-urgent align-middle" />
                 )}

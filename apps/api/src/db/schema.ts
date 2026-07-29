@@ -44,6 +44,8 @@ CREATE INDEX IF NOT EXISTS idx_breed_species ON breed_profiles(species);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_breed_species_generic
     ON breed_profiles(species) WHERE is_generic_fallback = 1;
 
+-- photo: optional owner-provided profile picture (JPEG bytes), served only
+-- through the authenticated /v1/pets/:id/photo endpoint.
 CREATE TABLE IF NOT EXISTS pets (
     id TEXT PRIMARY KEY,
     household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
@@ -54,6 +56,7 @@ CREATE TABLE IF NOT EXISTS pets (
     date_of_birth TEXT,
     weight_lbs REAL,
     sex TEXT,
+    photo BLOB,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     deleted_at TEXT

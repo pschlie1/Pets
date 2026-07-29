@@ -1,6 +1,7 @@
 import type { Db } from '../connection';
 import { uuid } from '../connection';
 import { seedBreedProfiles, BREED_IDS } from './breeds';
+import { PET_PHOTOS_B64 } from './photos';
 import { mulberry32 } from './rng';
 import { YARD_GEOMETRIES } from '@connected-care/shared';
 import {
@@ -22,10 +23,10 @@ export const SEED_DAYS = 21;
 /** Fixed IDs so the demo UI and scenario injectors can reference the reference household directly. */
 export const REF = {
   householdId: 'hh_2291',
-  baxter: 'pet_5001',
-  wrigley: 'pet_5002',
-  baxterCollar: 'dev_collar_5001',
-  wrigleyCollar: 'dev_collar_5002',
+  meeko: 'pet_5001',
+  lilo: 'pet_5002',
+  meekoCollar: 'dev_collar_5001',
+  liloCollar: 'dev_collar_5002',
   feeder: 'dev_feeder_9001',
   fountain: 'dev_fountain_9002',
   zip: '60614',
@@ -73,7 +74,7 @@ function insertEnv(db: Db, zip: string, temps: { low: number; high: number }[], 
 }
 
 /**
- * Seeds the Baxter & Wrigley reference household with SEED_DAYS of realistic
+ * Seeds the Meeko & Lilo reference household with SEED_DAYS of realistic
  * telemetry, plus the Duke & Ash household proving species flexibility.
  * Deterministic: same PRNG seed → identical data on every reset.
  */
@@ -92,33 +93,38 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       INSERT INTO pets (id, household_id, name, species, breed_id, breed_reference_confidence, date_of_birth, weight_lbs, sex)
       VALUES (?, ?, ?, ?, ?, 'high', ?, ?, ?)
     `);
-    petStmt.run(REF.baxter, REF.householdId, 'Baxter', 'dog', BREED_IDS.ckcs, '2017-04-12', 16.2, 'male');
-    petStmt.run(REF.wrigley, REF.householdId, 'Wrigley', 'dog', BREED_IDS.ckcs, '2018-06-03', 14.8, 'female');
+    petStmt.run(REF.meeko, REF.householdId, 'Meeko', 'dog', BREED_IDS.ckcs, '2017-04-12', 21.0, 'male');
+    petStmt.run(REF.lilo, REF.householdId, 'Lilo', 'dog', BREED_IDS.ckcs, '2018-06-03', 20.0, 'male');
+    // Owner-provided profile photos, served via GET /v1/pets/:id/photo.
+    const photoStmt = db.prepare(`UPDATE pets SET photo = ? WHERE id = ?`);
+    for (const [petId, b64] of Object.entries(PET_PHOTOS_B64)) {
+      photoStmt.run(Buffer.from(b64, 'base64'), petId);
+    }
 
     const devStmt = db.prepare(`
       INSERT INTO devices (id, household_id, device_type, model, assignment_mode, has_pet_attribution)
       VALUES (?, ?, ?, ?, ?, 1)
     `);
-    devStmt.run(REF.baxterCollar, REF.householdId, 'containment_collar', 'Boundary Plus GPS 2.0', 'dedicated');
-    devStmt.run(REF.wrigleyCollar, REF.householdId, 'containment_collar', 'Boundary Plus GPS 2.0', 'dedicated');
+    devStmt.run(REF.meekoCollar, REF.householdId, 'containment_collar', 'Boundary Plus GPS 2.0', 'dedicated');
+    devStmt.run(REF.liloCollar, REF.householdId, 'containment_collar', 'Boundary Plus GPS 2.0', 'dedicated');
     devStmt.run(REF.feeder, REF.householdId, 'feeder', 'Connected Care Smart Feeder', 'shared');
     devStmt.run(REF.fountain, REF.householdId, 'fountain', 'Connected Care Smart Fountain', 'shared');
 
     const linkStmt = db.prepare(`INSERT INTO device_pet_links (id, device_id, pet_id) VALUES (?, ?, ?)`);
     for (const [dev, pet] of [
-      [REF.baxterCollar, REF.baxter],
-      [REF.wrigleyCollar, REF.wrigley],
-      [REF.feeder, REF.baxter],
-      [REF.feeder, REF.wrigley],
-      [REF.fountain, REF.baxter],
-      [REF.fountain, REF.wrigley],
+      [REF.meekoCollar, REF.meeko],
+      [REF.liloCollar, REF.lilo],
+      [REF.feeder, REF.meeko],
+      [REF.feeder, REF.lilo],
+      [REF.fountain, REF.meeko],
+      [REF.fountain, REF.lilo],
     ] as const) {
       linkStmt.run(uuid(), dev, pet);
     }
 
     const deviceTypes = new Map<string, string>([
-      [REF.baxterCollar, 'containment_collar'],
-      [REF.wrigleyCollar, 'containment_collar'],
+      [REF.meekoCollar, 'containment_collar'],
+      [REF.liloCollar, 'containment_collar'],
       [REF.feeder, 'feeder'],
       [REF.fountain, 'fountain'],
     ]);
@@ -128,20 +134,20 @@ export function seedAll(db: Db, now: number = Date.now()): void {
     const tempHighs = temps.map((t) => t.high);
 
     const events: GeneratedEvent[] = [
-      // Baxter: mean 98 σ6 · Wrigley: mean 92 σ5 (matches PRD baselines)
-      ...heartRateSeries(rng, { deviceId: REF.baxterCollar, petId: REF.baxter, mean: 98, stdev: 6, days: SEED_DAYS, endMs: now }),
-      ...heartRateSeries(rng, { deviceId: REF.wrigleyCollar, petId: REF.wrigley, mean: 92, stdev: 5, days: SEED_DAYS, endMs: now }),
-      ...activitySeries(rng, { deviceId: REF.baxterCollar, petId: REF.baxter, days: SEED_DAYS, endMs: now, baseMinutes: 28 }),
-      ...activitySeries(rng, { deviceId: REF.wrigleyCollar, petId: REF.wrigley, days: SEED_DAYS, endMs: now, baseMinutes: 26 }),
-      ...sleepSeries(rng, { deviceId: REF.baxterCollar, petId: REF.baxter, days: SEED_DAYS, endMs: now }),
-      ...sleepSeries(rng, { deviceId: REF.wrigleyCollar, petId: REF.wrigley, days: SEED_DAYS, endMs: now }),
-      ...feedingSeries(rng, { deviceId: REF.feeder, petIds: [REF.baxter, REF.wrigley], days: SEED_DAYS, endMs: now }),
-      ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.baxter, days: SEED_DAYS, endMs: now, dailyTempsF: tempHighs }),
-      ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.wrigley, days: SEED_DAYS, endMs: now, mlPerVisit: 78, dailyTempsF: tempHighs }),
-      ...boundaryCheckSeries(rng, { deviceId: REF.baxterCollar, petId: REF.baxter, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
-      ...boundaryCheckSeries(rng, { deviceId: REF.wrigleyCollar, petId: REF.wrigley, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
-      ...deviceHealthSeries(rng, { deviceId: REF.baxterCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 98 }),
-      ...deviceHealthSeries(rng, { deviceId: REF.wrigleyCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 96 }),
+      // Meeko: mean 98 σ6 · Lilo: mean 92 σ5 (matches PRD baselines)
+      ...heartRateSeries(rng, { deviceId: REF.meekoCollar, petId: REF.meeko, mean: 98, stdev: 6, days: SEED_DAYS, endMs: now }),
+      ...heartRateSeries(rng, { deviceId: REF.liloCollar, petId: REF.lilo, mean: 92, stdev: 5, days: SEED_DAYS, endMs: now }),
+      ...activitySeries(rng, { deviceId: REF.meekoCollar, petId: REF.meeko, days: SEED_DAYS, endMs: now, baseMinutes: 28 }),
+      ...activitySeries(rng, { deviceId: REF.liloCollar, petId: REF.lilo, days: SEED_DAYS, endMs: now, baseMinutes: 26 }),
+      ...sleepSeries(rng, { deviceId: REF.meekoCollar, petId: REF.meeko, days: SEED_DAYS, endMs: now }),
+      ...sleepSeries(rng, { deviceId: REF.liloCollar, petId: REF.lilo, days: SEED_DAYS, endMs: now }),
+      ...feedingSeries(rng, { deviceId: REF.feeder, petIds: [REF.meeko, REF.lilo], days: SEED_DAYS, endMs: now }),
+      ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.meeko, days: SEED_DAYS, endMs: now, dailyTempsF: tempHighs }),
+      ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.lilo, days: SEED_DAYS, endMs: now, mlPerVisit: 78, dailyTempsF: tempHighs }),
+      ...boundaryCheckSeries(rng, { deviceId: REF.meekoCollar, petId: REF.meeko, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
+      ...boundaryCheckSeries(rng, { deviceId: REF.liloCollar, petId: REF.lilo, days: SEED_DAYS, endMs: now, yard: YARD_GEOMETRIES[REF.householdId] }),
+      ...deviceHealthSeries(rng, { deviceId: REF.meekoCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 98 }),
+      ...deviceHealthSeries(rng, { deviceId: REF.liloCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 96 }),
       ...deviceHealthSeries(rng, { deviceId: REF.fountain, days: SEED_DAYS, endMs: now, startBatteryPct: 100, drainPerDay: 0 }),
     ];
     insertEvents(db, REF.householdId, deviceTypes, events);
@@ -167,11 +173,11 @@ export function seedAll(db: Db, now: number = Date.now()): void {
     const ownerStmt = db.prepare(
       `INSERT INTO owners (id, email, display_name, household_id) VALUES (?, ?, ?, ?)`,
     );
-    ownerStmt.run('owner_5001', 'peter@connectedcare.demo', 'Peter (Baxter & Wrigley)', REF.householdId);
+    ownerStmt.run('owner_5001', 'peter@connectedcare.demo', 'Peter (Meeko & Lilo)', REF.householdId);
     ownerStmt.run('owner_6001', 'sam@connectedcare.demo', 'Sam (Duke & Ash)', REF2.householdId);
 
     // Baselines computed from the actual seeded telemetry, not hardcoded.
-    for (const petId of [REF.baxter, REF.wrigley, REF2.duke, REF2.ash]) {
+    for (const petId of [REF.meeko, REF.lilo, REF2.duke, REF2.ash]) {
       recomputeBaselines(db, petId, now);
     }
   })();

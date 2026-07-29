@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { Insight, Urgency } from '@connected-care/shared';
 import { urgencyRank } from '@connected-care/shared';
 import type { PetSummary } from '../api/client';
+import { PetAvatar } from './PetAvatar';
 import { UrgencyBadge } from './UrgencyBadge';
 
 const RING: Record<Urgency, string> = {
@@ -33,9 +34,7 @@ export function PetCard({ pet, insights }: { pet: PetSummary; insights: Insight[
       className={`block rounded-2xl bg-card p-5 shadow-sm ring-4 transition hover:shadow-md ${worst ? RING[worst] : 'ring-safe/25'}`}
     >
       <div className="flex items-center gap-4">
-        <div className="grid h-16 w-16 place-items-center rounded-full bg-brand text-3xl" aria-hidden>
-          {pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}
-        </div>
+        <PetAvatar petId={pet.id} species={pet.species} hasPhoto={pet.has_photo} size="md" />
         <div>
           <h3 className="text-xl font-extrabold">{pet.name}</h3>
           <p className="text-sm text-gray-500">

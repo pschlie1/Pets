@@ -45,13 +45,13 @@ describe('telemetry ingestion', () => {
       .post('/v1/telemetry/events')
       .set(...AUTH)
       .send({
-        device_id: REF.baxterCollar,
+        device_id: REF.meekoCollar,
         event_type: 'heart_rate_reading',
         occurred_at: new Date().toISOString(),
         payload: { bpm: 98, activity_state: 'resting', boundary_status: 'inside' },
       });
     expect(res.status).toBe(201);
-    expect(res.body.data.pet_id).toBe(REF.baxter);
+    expect(res.body.data.pet_id).toBe(REF.meeko);
     expect(res.body.data.status).toBe('accepted');
   });
 
@@ -72,7 +72,7 @@ describe('telemetry ingestion', () => {
       .post('/v1/telemetry/events')
       .set(...AUTH)
       .send({
-        device_id: REF.baxterCollar,
+        device_id: REF.meekoCollar,
         event_type: 'heart_rate_reading',
         occurred_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
         payload: { bpm: 98 },
@@ -116,15 +116,15 @@ describe('breeds and reference data', () => {
 
 describe('pets and baselines', () => {
   it('serves a pet with breed profile and linked devices', async () => {
-    const res = await request(app).get(`/v1/pets/${REF.baxter}`).set(...AUTH);
+    const res = await request(app).get(`/v1/pets/${REF.meeko}`).set(...AUTH);
     expect(res.status).toBe(200);
-    expect(res.body.data.name).toBe('Baxter');
+    expect(res.body.data.name).toBe('Meeko');
     expect(res.body.data.breed_name).toMatch(/Cavalier/);
     expect(res.body.data.devices.length).toBe(3); // collar + shared feeder + shared fountain
   });
 
   it('computes established baselines from seeded telemetry', async () => {
-    const res = await request(app).get(`/v1/pets/${REF.baxter}/baseline?metric=resting_heart_rate`).set(...AUTH);
+    const res = await request(app).get(`/v1/pets/${REF.meeko}/baseline?metric=resting_heart_rate`).set(...AUTH);
     const baseline = res.body.data[0];
     expect(baseline.status).toBe('established');
     expect(baseline.mean).toBeGreaterThan(85);
@@ -145,7 +145,7 @@ describe('pets and baselines', () => {
 describe('demo tier → insight pipeline (full stack, template narration)', () => {
   it('trigger S5 produces an urgent heart-rate insight with a vet recommendation', async () => {
     const res = await request(app)
-      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_baxter_heart`)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_meeko_heart`)
       .set(...AUTH);
     expect(res.status).toBe(200);
     const hr = res.body.data.insights.find((i: { metric: string }) => i.metric === 'resting_heart_rate');
@@ -175,10 +175,10 @@ describe('demo tier → insight pipeline (full stack, template narration)', () =
     const res = await request(app)
       .post('/v1/agent/query')
       .set(...AUTH)
-      .send({ pet_id: REF.baxter, question: 'How is Baxter doing?' });
+      .send({ pet_id: REF.meeko, question: 'How is Meeko doing?' });
     expect(res.status).toBe(200);
     expect(res.body.data.mode).toBe('template');
-    expect(res.body.data.answer).toMatch(/Baxter/);
+    expect(res.body.data.answer).toMatch(/Meeko/);
     // An urgent insight is active from S5 — the guardrail requires a vet mention.
     expect(res.body.data.answer.toLowerCase()).toMatch(/vet/);
   });
@@ -187,7 +187,7 @@ describe('demo tier → insight pipeline (full stack, template narration)', () =
     const res = await request(app)
       .post('/v1/agent/query')
       .set(...AUTH)
-      .send({ pet_id: REF.baxter, question: 'How many mg of benadryl can I give him?' });
+      .send({ pet_id: REF.meeko, question: 'How many mg of benadryl can I give him?' });
     expect(res.body.data.answer).toMatch(/veterinarian/i);
     expect(res.body.data.answer).not.toMatch(/\d+\s*mg/);
   });
@@ -212,10 +212,10 @@ describe('demo tier → insight pipeline (full stack, template narration)', () =
 describe('vet report', () => {
   it('assembles the full report with template-mode summary', async () => {
     await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
-    const res = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    const res = await request(app).get(`/v1/pets/${REF.meeko}/vet-report`).set(...AUTH);
     expect(res.status).toBe(200);
     const report = res.body.data;
-    expect(report.pet.name).toBe('Baxter');
+    expect(report.pet.name).toBe('Meeko');
     expect(report.metrics.length).toBe(5);
     expect(report.summary.mode).toBe('template');
     expect(report.summary.text).toMatch(/14 days/);
@@ -231,7 +231,7 @@ describe('vet report', () => {
 
   it('records a digital share and returns it in subsequent reports', async () => {
     const share = await request(app)
-      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .post(`/v1/pets/${REF.meeko}/vet-report/share`)
       .set(...AUTH)
       .send({ recipient: 'Lincoln Park Veterinary Clinic', method: 'portal' });
     expect(share.status).toBe(201);
@@ -239,14 +239,14 @@ describe('vet report', () => {
     expect(Array.isArray(share.body.data.insight_ids)).toBe(true);
     expect(share.body.data.shared_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
-    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    const report = await request(app).get(`/v1/pets/${REF.meeko}/vet-report`).set(...AUTH);
     expect(report.body.data.shares.length).toBe(1);
     expect(report.body.data.shares[0].method).toBe('portal');
   });
 
   it('rejects a malformed share request', async () => {
     const res = await request(app)
-      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .post(`/v1/pets/${REF.meeko}/vet-report/share`)
       .set(...AUTH)
       .send({ method: 'carrier_pigeon' });
     expect(res.status).toBe(400);
@@ -255,7 +255,7 @@ describe('vet report', () => {
 
   it('excludes dismissed insights from the report, keeps acknowledged ones', async () => {
     const trigger = await request(app)
-      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_baxter_heart`)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_meeko_heart`)
       .set(...AUTH);
     const insights = trigger.body.data.insights as { id: string; urgency: string }[];
     const urgent = insights.find((i) => i.urgency === 'urgent')!;
@@ -264,7 +264,7 @@ describe('vet report', () => {
     await request(app).post(`/v1/insights/${urgent.id}/dismiss`).set(...AUTH);
     if (other) await request(app).post(`/v1/insights/${other.id}/acknowledge`).set(...AUTH);
 
-    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    const report = await request(app).get(`/v1/pets/${REF.meeko}/vet-report`).set(...AUTH);
     const ids = report.body.data.active_insights.map((i: { id: string }) => i.id);
     expect(ids).not.toContain(urgent.id);
     if (other) expect(ids).toContain(other.id);
@@ -272,7 +272,7 @@ describe('vet report', () => {
 
   it('reset clears share history', async () => {
     await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
-    const report = await request(app).get(`/v1/pets/${REF.baxter}/vet-report`).set(...AUTH);
+    const report = await request(app).get(`/v1/pets/${REF.meeko}/vet-report`).set(...AUTH);
     expect(report.body.data.shares).toEqual([]);
   });
 });
@@ -309,8 +309,8 @@ describe('containment (Safety Center)', () => {
     expect(res.body.data.insights[0].urgency).toBe('monitor');
     expect(res.body.data.insights[0].insight_type).toBe('pet_safety');
     const containment = await getContainment();
-    const baxter = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.baxter);
-    expect(baxter.zone_status).toBe('inside');
+    const meeko = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.meeko);
+    expect(meeko.zone_status).toBe('inside');
   });
 
   it('signal-lost scenario yields an attention insight, offline device, unknown zone', async () => {
@@ -320,10 +320,10 @@ describe('containment (Safety Center)', () => {
     expect(res.body.data.insights[0].urgency).toBe('attention');
     expect(res.body.data.insights[0].metric).toBe('containment_signal');
     const containment = await getContainment();
-    const wrigley = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.wrigley);
-    expect(wrigley.device_status).toBe('offline');
-    expect(wrigley.zone_status).toBe('unknown');
-    expect(wrigley.containment_state).toBe('signal_lost');
+    const lilo = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.lilo);
+    expect(lilo.device_status).toBe('offline');
+    expect(lilo.zone_status).toBe('unknown');
+    expect(lilo.containment_state).toBe('signal_lost');
     expect(containment.body.data.overall).toBe('degraded');
   });
 
@@ -334,9 +334,9 @@ describe('containment (Safety Center)', () => {
     expect(res.body.data.insights[0].urgency).toBe('urgent');
     expect(res.body.data.insights[0].insight_type).toBe('equipment');
     const containment = await getContainment();
-    const baxter = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.baxter);
-    expect(baxter.battery_pct).toBe(12);
-    expect(baxter.device_status).toBe('low_battery');
+    const meeko = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.meeko);
+    expect(meeko.battery_pct).toBe(12);
+    expect(meeko.device_status).toBe('low_battery');
   });
 
   it('emergency breach pins the pet outside and the top-up does not erase it', async () => {
@@ -346,9 +346,9 @@ describe('containment (Safety Center)', () => {
     // Two consecutive reads: the breach state must survive the lazy top-up.
     await getContainment();
     const containment = await getContainment();
-    const wrigley = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.wrigley);
-    expect(wrigley.zone_status).toBe('outside');
-    expect(wrigley.containment_state).toBe('breach');
+    const lilo = containment.body.data.pets.find((p: { pet_id: string }) => p.pet_id === REF.lilo);
+    expect(lilo.zone_status).toBe('outside');
+    expect(lilo.containment_state).toBe('breach');
     expect(containment.body.data.overall).toBe('alert');
     const kinds = containment.body.data.recent_events.map((e: { kind: string }) => e.kind);
     expect(kinds).toContain('breach');

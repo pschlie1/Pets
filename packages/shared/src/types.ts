@@ -150,6 +150,8 @@ export interface VetReport {
     age_years: number | null;
     weight_lbs: number | null;
     sex: string | null;
+    /** SQLite boolean (0/1): a profile photo exists at /v1/pets/:id/photo. */
+    has_photo: number;
   };
   breed: {
     breed_name: string | null;

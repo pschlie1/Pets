@@ -7,6 +7,11 @@ import { assertHousehold, petHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
 import { validate } from '../middleware/validate';
 
+// Every pet column except the photo BLOB (served by its own endpoint), plus a
+// has_photo flag so clients know whether to request it.
+const PET_COLS =
+  'id, household_id, name, species, breed_id, breed_reference_confidence, date_of_birth, weight_lbs, sex, created_at, updated_at, deleted_at, (photo IS NOT NULL) AS has_photo';
+
 export function householdRoutes(db: Db): Router {
   const r = Router();
 
@@ -27,7 +32,7 @@ export function householdRoutes(db: Db): Router {
       .get(req.params.id) as Record<string, unknown> | undefined;
     if (!household) throw new ApiError(404, 'not_found', 'Household not found.');
     const pets = db
-      .prepare(`SELECT * FROM pets WHERE household_id = ? AND deleted_at IS NULL ORDER BY name`)
+      .prepare(`SELECT ${PET_COLS} FROM pets WHERE household_id = ? AND deleted_at IS NULL ORDER BY name`)
       .all(req.params.id);
     const devices = db
       .prepare(`SELECT * FROM devices WHERE household_id = ? AND deleted_at IS NULL`)
@@ -71,14 +76,17 @@ export function householdRoutes(db: Db): Router {
       req.body.weight_lbs ?? null,
       req.body.sex ?? null,
     );
-    res.status(201).json({ data: db.prepare(`SELECT * FROM pets WHERE id = ?`).get(id) });
+    res.status(201).json({ data: db.prepare(`SELECT ${PET_COLS} FROM pets WHERE id = ?`).get(id) });
   });
 
   r.get('/pets/:id', (req, res) => {
     assertHousehold(req, petHousehold(db, req.params.id));
     const pet = db
       .prepare(
-        `SELECT p.*, b.breed_name, b.size_class, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
+        `SELECT p.id, p.household_id, p.name, p.species, p.breed_id, p.breed_reference_confidence,
+                p.date_of_birth, p.weight_lbs, p.sex, p.created_at, p.updated_at, p.deleted_at,
+                (p.photo IS NOT NULL) AS has_photo,
+                b.breed_name, b.size_class, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
          FROM pets p LEFT JOIN breed_profiles b ON b.id = p.breed_id
          WHERE p.id = ? AND p.deleted_at IS NULL`,
       )
@@ -108,7 +116,7 @@ export function householdRoutes(db: Db): Router {
         );
       }
     }
-    res.json({ data: db.prepare(`SELECT * FROM pets WHERE id = ?`).get(req.params.id) });
+    res.json({ data: db.prepare(`SELECT ${PET_COLS} FROM pets WHERE id = ?`).get(req.params.id) });
   });
 
   r.post('/pets/:id/devices', validate(linkDeviceSchema), (req, res) => {

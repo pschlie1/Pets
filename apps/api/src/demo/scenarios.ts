@@ -75,18 +75,18 @@ function inBucket(rng: () => number, now: number, daysAgo: number): number {
 
 type Injector = (db: Db, now: number, listener?: InsightListener) => Promise<Insight[]>;
 
-/** S1 — Info: Wrigley's water intake dips 5% below baseline on a cooler day. Logged only. */
+/** S1 — Info: Lilo's water intake dips 5% below baseline on a cooler day. Logged only. */
 const infoWaterDip: Injector = async (db, now, listener) => {
   const rng = mulberry32(101);
-  const base = baselineFor(db, REF.wrigley, 'water_intake_ml');
-  clearWindow(db, REF.wrigley, 'drinking_session', now, 3);
+  const base = baselineFor(db, REF.lilo, 'water_intake_ml');
+  clearWindow(db, REF.lilo, 'drinking_session', now, 3);
   const events: RawEvent[] = [];
   for (const daysAgo of [0, 1, 2]) {
     const visits = 7;
     for (let v = 0; v < visits; v++) {
       events.push({
         device_id: REF.fountain,
-        pet_id: REF.wrigley,
+        pet_id: REF.lilo,
         device_type: 'fountain',
         event_type: 'drinking_session',
         occurred_at: inBucket(rng, now, daysAgo),
@@ -99,7 +99,7 @@ const infoWaterDip: Injector = async (db, now, listener) => {
     }
   }
   insertRaw(db, REF.householdId, events);
-  const insight = await evaluatePetMetric(db, REF.wrigley, 'water_intake_ml', now, listener, { persistInfo: true });
+  const insight = await evaluatePetMetric(db, REF.lilo, 'water_intake_ml', now, listener, { persistInfo: true });
   return insight ? [insight] : [];
 };
 
@@ -146,7 +146,7 @@ const attentionColdSnap: Injector = async (db, now, listener) => {
   // Both dogs at ~45% of their usual intake across the whole 3-day evaluation
   // window — a shared, weather-shaped drop. Owning the full window keeps prior
   // scenario state from skewing either dog.
-  for (const petId of [REF.baxter, REF.wrigley]) {
+  for (const petId of [REF.meeko, REF.lilo]) {
     const base = baselineFor(db, petId, 'water_intake_ml');
     clearWindow(db, petId, 'drinking_session', now, 3);
     const events: RawEvent[] = [];
@@ -172,7 +172,7 @@ const attentionColdSnap: Injector = async (db, now, listener) => {
   }
 
   const insights: Insight[] = [];
-  for (const petId of [REF.baxter, REF.wrigley]) {
+  for (const petId of [REF.meeko, REF.lilo]) {
     const insight = await evaluatePetMetric(db, petId, 'water_intake_ml', now, listener);
     if (insight) insights.push(insight);
   }
@@ -188,7 +188,7 @@ const attentionFountainFilter: Injector = async (db, now, listener) => {
   for (let i = 0; i < 40; i++) {
     events.push({
       device_id: REF.fountain,
-      pet_id: rng() < 0.5 ? REF.baxter : REF.wrigley,
+      pet_id: rng() < 0.5 ? REF.meeko : REF.lilo,
       device_type: 'fountain',
       event_type: 'drinking_session',
       occurred_at: inBucket(rng, now, 0),
@@ -204,22 +204,22 @@ const attentionFountainFilter: Injector = async (db, now, listener) => {
   return insight ? [insight] : [];
 };
 
-/** S5 — Urgent: Baxter's resting HR runs 15% above baseline for three days with shorter walks; Wrigley stays normal. */
-const urgentBaxterHeart: Injector = async (db, now, listener) => {
+/** S5 — Urgent: Meeko's resting HR runs 15% above baseline for three days with shorter walks; Lilo stays normal. */
+const urgentMeekoHeart: Injector = async (db, now, listener) => {
   const rng = mulberry32(505);
-  const hrBase = baselineFor(db, REF.baxter, 'resting_heart_rate');
+  const hrBase = baselineFor(db, REF.meeko, 'resting_heart_rate');
   const elevated = hrBase.mean * 1.15;
 
-  clearWindow(db, REF.baxter, 'heart_rate_reading', now, 3);
-  clearWindow(db, REF.baxter, 'activity_session', now, 3);
+  clearWindow(db, REF.meeko, 'heart_rate_reading', now, 3);
+  clearWindow(db, REF.meeko, 'activity_session', now, 3);
 
   const events: RawEvent[] = [];
   for (const daysAgo of [0, 1, 2]) {
     // Dense elevated resting readings own each bucket's average.
     for (let r = 0; r < 48; r++) {
       events.push({
-        device_id: REF.baxterCollar,
-        pet_id: REF.baxter,
+        device_id: REF.meekoCollar,
+        pet_id: REF.meeko,
         device_type: 'containment_collar',
         event_type: 'heart_rate_reading',
         occurred_at: inBucket(rng, now, daysAgo),
@@ -233,8 +233,8 @@ const urgentBaxterHeart: Injector = async (db, now, listener) => {
     // Walks shorter and slower than usual over the same stretch.
     for (const hoursBack of [4, 14]) {
       events.push({
-        device_id: REF.baxterCollar,
-        pet_id: REF.baxter,
+        device_id: REF.meekoCollar,
+        pet_id: REF.meeko,
         device_type: 'containment_collar',
         event_type: 'activity_session',
         occurred_at: now - daysAgo * DAY - hoursBack * HOUR,
@@ -245,18 +245,18 @@ const urgentBaxterHeart: Injector = async (db, now, listener) => {
   insertRaw(db, REF.householdId, events);
 
   const insights: Insight[] = [];
-  const hr = await evaluatePetMetric(db, REF.baxter, 'resting_heart_rate', now, listener);
+  const hr = await evaluatePetMetric(db, REF.meeko, 'resting_heart_rate', now, listener);
   if (hr) insights.push(hr);
-  const walks = await evaluatePetMetric(db, REF.baxter, 'walk_minutes', now, listener);
+  const walks = await evaluatePetMetric(db, REF.meeko, 'walk_minutes', now, listener);
   if (walks) insights.push(walks);
   return insights;
 };
 
-/** S7 — Monitor: Baxter steps past the boundary but keeps moving and returns on his own. */
+/** S7 — Monitor: Meeko steps past the boundary but keeps moving and returns on his own. */
 const breachSafeReturn: Injector = async (db, now, listener) => {
   // The breach must be the newest containment event while it lasts, and the
   // return the newest after it — clear the collar's recent check-ins.
-  clearDeviceWindow(db, REF.baxterCollar, 'boundary_check', now, 2);
+  clearDeviceWindow(db, REF.meekoCollar, 'boundary_check', now, 2);
 
   const breachPayload = {
     status: 'breach',
@@ -272,16 +272,16 @@ const breachSafeReturn: Injector = async (db, now, listener) => {
   };
   insertRaw(db, REF.householdId, [
     {
-      device_id: REF.baxterCollar,
-      pet_id: REF.baxter,
+      device_id: REF.meekoCollar,
+      pet_id: REF.meeko,
       device_type: 'containment_collar',
       event_type: 'boundary_event',
       occurred_at: now - 9 * 60_000,
       payload: breachPayload,
     },
     {
-      device_id: REF.baxterCollar,
-      pet_id: REF.baxter,
+      device_id: REF.meekoCollar,
+      pet_id: REF.meeko,
       device_type: 'containment_collar',
       event_type: 'boundary_event',
       occurred_at: now - 2 * 60_000,
@@ -292,25 +292,25 @@ const breachSafeReturn: Injector = async (db, now, listener) => {
   // gets walked back.
   const insight = await evaluateSafetyEvent(
     db,
-    { household_id: REF.householdId, device_id: REF.baxterCollar, pet_id: REF.baxter, payload: returnPayload },
+    { household_id: REF.householdId, device_id: REF.meekoCollar, pet_id: REF.meeko, payload: returnPayload },
     now,
     listener,
   );
   return insight ? [insight] : [];
 };
 
-/** S8 — Attention: Wrigley's collar goes silent; containment can no longer be verified. */
+/** S8 — Attention: Lilo's collar goes silent; containment can no longer be verified. */
 const collarSignalLost: Injector = async (db, now, listener) => {
-  clearDeviceWindow(db, REF.wrigleyCollar, 'boundary_check', now, 2);
-  const insight = await evaluateCollarSignal(db, REF.wrigleyCollar, now, listener);
+  clearDeviceWindow(db, REF.liloCollar, 'boundary_check', now, 2);
+  const insight = await evaluateCollarSignal(db, REF.liloCollar, now, listener);
   return insight ? [insight] : [];
 };
 
-/** S9 — Urgent: Baxter's collar battery drains to 12% — a containment safety gap. */
+/** S9 — Urgent: Meeko's collar battery drains to 12% — a containment safety gap. */
 const collarBatteryCritical: Injector = async (db, now, listener) => {
   insertRaw(db, REF.householdId, [
     {
-      device_id: REF.baxterCollar,
+      device_id: REF.meekoCollar,
       pet_id: null,
       device_type: 'containment_collar',
       event_type: 'device_health_ping',
@@ -318,14 +318,14 @@ const collarBatteryCritical: Injector = async (db, now, listener) => {
       payload: { check: 'daily_status', battery_pct: 12, signal_strength: 4, firmware: '2.4.1' },
     },
   ]);
-  const insight = await evaluateDevice(db, REF.baxterCollar, now, listener);
+  const insight = await evaluateDevice(db, REF.meekoCollar, now, listener);
   return insight ? [insight] : [];
 };
 
-/** S6 — Emergency: Wrigley's collar reports a boundary breach with extended no-motion outside the safe zone. */
+/** S6 — Emergency: Lilo's collar reports a boundary breach with extended no-motion outside the safe zone. */
 const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
   // Guarantee the breach is the newest containment event regardless of uptime.
-  clearDeviceWindow(db, REF.wrigleyCollar, 'boundary_check', now, 2);
+  clearDeviceWindow(db, REF.liloCollar, 'boundary_check', now, 2);
   const payload = {
     status: 'breach',
     minutes_outside_zone: 22,
@@ -334,8 +334,8 @@ const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
   };
   insertRaw(db, REF.householdId, [
     {
-      device_id: REF.wrigleyCollar,
-      pet_id: REF.wrigley,
+      device_id: REF.liloCollar,
+      pet_id: REF.lilo,
       device_type: 'containment_collar',
       event_type: 'boundary_event',
       occurred_at: now - 22 * 60_000,
@@ -344,7 +344,7 @@ const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
   ]);
   const insight = await evaluateSafetyEvent(
     db,
-    { household_id: REF.householdId, device_id: REF.wrigleyCollar, pet_id: REF.wrigley, payload },
+    { household_id: REF.householdId, device_id: REF.liloCollar, pet_id: REF.lilo, payload },
     now,
     listener,
   );
@@ -356,7 +356,7 @@ const INJECTORS: Record<ScenarioKey, Injector> = {
   monitor_feeder_drift: monitorFeederDrift,
   attention_cold_snap: attentionColdSnap,
   attention_fountain_filter: attentionFountainFilter,
-  urgent_baxter_heart: urgentBaxterHeart,
+  urgent_meeko_heart: urgentMeekoHeart,
   breach_safe_return: breachSafeReturn,
   collar_signal_lost: collarSignalLost,
   collar_battery_critical: collarBatteryCritical,

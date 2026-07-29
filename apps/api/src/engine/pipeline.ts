@@ -35,7 +35,11 @@ interface BreedRow {
 }
 
 function getPet(db: Db, petId: string): PetRow | undefined {
-  return db.prepare(`SELECT * FROM pets WHERE id = ? AND deleted_at IS NULL`).get(petId) as PetRow | undefined;
+  return db
+    .prepare(
+      `SELECT id, household_id, name, species, breed_id, date_of_birth FROM pets WHERE id = ? AND deleted_at IS NULL`,
+    )
+    .get(petId) as PetRow | undefined;
 }
 
 function ageYears(pet: PetRow, now: number): number | null {

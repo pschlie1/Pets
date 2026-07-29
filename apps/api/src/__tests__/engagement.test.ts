@@ -42,8 +42,8 @@ describe('daily briefing', () => {
     expect(['morning', 'afternoon', 'evening']).toContain(data.greeting_period);
     // Fact chips cover both dogs and the fence.
     const text = data.facts.map((f) => f.text).join(' ');
-    expect(text).toMatch(/Baxter/);
-    expect(text).toMatch(/Wrigley/);
+    expect(text).toMatch(/Meeko/);
+    expect(text).toMatch(/Lilo/);
     expect(text).toMatch(/[Ff]ence|boundary/);
   });
 });
@@ -59,7 +59,7 @@ describe('peace-of-mind score', () => {
 
   it('drops when an urgent insight lands and recovers on reset', async () => {
     await request(app)
-      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_baxter_heart`)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/urgent_meeko_heart`)
       .set(...AUTH);
     const during = await get<PeaceOfMindScore>(`/v1/households/${REF.householdId}/score`);
     expect(during.data.score).toBeLessThanOrEqual(80);
@@ -148,21 +148,21 @@ describe('dealer', () => {
 describe('vet share stages', () => {
   it('a fresh share starts at sent; an old one is reviewed with a clinic note', async () => {
     await request(app)
-      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .post(`/v1/pets/${REF.meeko}/vet-report/share`)
       .set(...AUTH)
       .send({ recipient: 'Lincoln Park Veterinary Clinic', method: 'portal' });
     // Backdate a second share so the reviewed stage is exercised.
     db.prepare(
       `INSERT INTO vet_shares (id, household_id, pet_id, recipient, method, insight_ids, shared_at) VALUES (?, ?, ?, ?, 'portal', '[]', ?)`,
-    ).run('share_old', REF.householdId, REF.baxter, 'Lincoln Park Veterinary Clinic', new Date(Date.now() - 20 * 60_000).toISOString());
+    ).run('share_old', REF.householdId, REF.meeko, 'Lincoln Park Veterinary Clinic', new Date(Date.now() - 20 * 60_000).toISOString());
 
-    const { data } = await get<VetShareWithStatus[]>(`/v1/pets/${REF.baxter}/vet-report/shares`);
+    const { data } = await get<VetShareWithStatus[]>(`/v1/pets/${REF.meeko}/vet-report/shares`);
     const fresh = data.find((s) => s.id !== 'share_old')!;
     const old = data.find((s) => s.id === 'share_old')!;
     expect(fresh.stage).toBe('sent');
     expect(fresh.clinic_note).toBeNull();
     expect(old.stage).toBe('reviewed');
-    expect(old.clinic_note).toMatch(/Baxter/);
+    expect(old.clinic_note).toMatch(/Meeko/);
   });
 });
 
@@ -172,7 +172,7 @@ describe('tenancy', () => {
       const res = await request(app).get(`/v1/households/${REF.householdId}/${path}`).set(...SAM);
       expect(res.status).toBe(403);
     }
-    const shares = await request(app).get(`/v1/pets/${REF.baxter}/vet-report/shares`).set(...SAM);
+    const shares = await request(app).get(`/v1/pets/${REF.meeko}/vet-report/shares`).set(...SAM);
     expect(shares.status).toBe(403);
   });
 });

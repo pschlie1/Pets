@@ -9,7 +9,7 @@ export const SCENARIO_KEYS = [
   'monitor_feeder_drift',
   'attention_cold_snap',
   'attention_fountain_filter',
-  'urgent_baxter_heart',
+  'urgent_meeko_heart',
   'breach_safe_return',
   'collar_signal_lost',
   'collar_battery_critical',
@@ -31,7 +31,7 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     key: 'info_water_dip',
     name: 'Small water dip',
     description:
-      "Wrigley's water intake runs 5% below her baseline on a cooler day — inside her normal range and the breed's.",
+      "Lilo's water intake runs 5% below her baseline on a cooler day — inside her normal range and the breed's.",
     expectedUrgency: 'info',
     insightType: 'pet_health',
     watchFor: 'Logged quietly. No push, no alarm — visible only if you go looking.',
@@ -63,11 +63,11 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     insightType: 'equipment',
     watchFor: 'An equipment insight suggesting a filter order, not a pet health alarm.',
   },
-  urgent_baxter_heart: {
-    key: 'urgent_baxter_heart',
-    name: "Baxter's heart rate trend",
+  urgent_meeko_heart: {
+    key: 'urgent_meeko_heart',
+    name: "Meeko's heart rate trend",
     description:
-      "Baxter's resting heart rate runs 15% above his own baseline for three days, with shorter walks. Wrigley stays normal — ruling out a shared cause.",
+      "Meeko's resting heart rate runs 15% above his own baseline for three days, with shorter walks. Lilo stays normal — ruling out a shared cause.",
     expectedUrgency: 'urgent',
     insightType: 'pet_health',
     watchFor:
@@ -77,7 +77,7 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     key: 'breach_safe_return',
     name: 'Brief breach, safe return',
     description:
-      'Baxter steps past the boundary but keeps moving the whole time and returns to the safe zone on his own within minutes.',
+      'Meeko steps past the boundary but keeps moving the whole time and returns to the safe zone on his own within minutes.',
     expectedUrgency: 'monitor',
     insightType: 'pet_safety',
     watchFor:
@@ -87,7 +87,7 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     key: 'collar_signal_lost',
     name: 'Collar signal lost',
     description:
-      "Wrigley's collar stops checking in. The system notices the silence itself: containment can no longer be verified.",
+      "Lilo's collar stops checking in. The system notices the silence itself: containment can no longer be verified.",
     expectedUrgency: 'attention',
     insightType: 'pet_safety',
     watchFor:
@@ -97,7 +97,7 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     key: 'collar_battery_critical',
     name: 'Collar battery critical',
     description:
-      "Baxter's collar battery drains to 12%. Below this level boundary corrections may not deliver.",
+      "Meeko's collar battery drains to 12%. Below this level boundary corrections may not deliver.",
     expectedUrgency: 'urgent',
     insightType: 'equipment',
     watchFor:
@@ -107,7 +107,7 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     key: 'emergency_boundary_breach',
     name: 'Boundary breach + no motion',
     description:
-      "Wrigley's collar reports a boundary breach, then an extended period of no motion outside the safe zone.",
+      "Lilo's collar reports a boundary breach, then an extended period of no motion outside the safe zone.",
     expectedUrgency: 'emergency',
     insightType: 'pet_safety',
     watchFor:

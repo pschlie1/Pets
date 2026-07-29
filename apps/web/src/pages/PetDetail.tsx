@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type MetricSeries, type PetDetailData } from '../api/client';
 import { InsightCard } from '../components/InsightCard';
+import { PetAvatar } from '../components/PetAvatar';
 import { TrendCard } from '../components/TrendCard';
 import { TREND_METRICS } from '../metrics';
 import { useHousehold } from '../state/HouseholdContext';
@@ -33,9 +34,7 @@ export function PetDetail() {
         ← Home
       </Link>
       <header className="flex flex-wrap items-center gap-4 rounded-2xl bg-card p-5 shadow-sm">
-        <div className="grid h-20 w-20 place-items-center rounded-full bg-brand text-4xl" aria-hidden>
-          {pet.species === 'dog' ? '🐶' : pet.species === 'cat' ? '🐱' : '🐾'}
-        </div>
+        <PetAvatar petId={pet.id} species={pet.species} hasPhoto={pet.has_photo} size="lg" />
         <div>
           <h1 className="text-2xl font-extrabold">{pet.name}</h1>
           <p className="text-sm text-gray-500">

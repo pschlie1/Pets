@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { vetSummaryTemplate, type VetSummaryInput } from '../fallback';
 
 const base: VetSummaryInput = {
-  petName: 'Baxter',
+  petName: 'Meeko',
   species: 'dog',
   breedName: 'Cavalier King Charles Spaniel',
   ageYears: 9,
-  weightLbs: 16.2,
+  weightLbs: 21,
   sex: 'male',
   windowDays: 14,
   deltas: [],
