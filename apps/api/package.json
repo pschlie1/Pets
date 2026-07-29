@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "build": "echo 'ERROR: This looks like a Vercel deploy with Root Directory set to apps/api. Set the project Root Directory to the repository root (leave the field empty) so vercel.json is picked up — see README, section Deploying to Vercel.' && exit 1",
     "seed": "tsx src/db/seed/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"
