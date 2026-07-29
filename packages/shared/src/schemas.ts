@@ -41,6 +41,10 @@ export const agentQuerySchema = z.object({
   question: z.string().min(1).max(2000),
 });
 
+export const loginSchema = z.object({
+  email: z.string().email(),
+});
+
 export const vetShareSchema = z.object({
   recipient: z.string().min(1).max(200),
   method: z.enum(['portal', 'email', 'link']),

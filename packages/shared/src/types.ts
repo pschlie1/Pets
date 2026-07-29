@@ -107,6 +107,18 @@ export interface AgentReply {
   data_window_days: number;
 }
 
+export interface Owner {
+  id: string;
+  email: string;
+  display_name: string;
+  household_id: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  owner: Owner;
+}
+
 export interface VetShare {
   id: string;
   household_id: string;

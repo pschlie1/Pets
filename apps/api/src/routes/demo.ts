@@ -4,6 +4,7 @@ import type { Db } from '../db/connection';
 import { REF, resetAll, seedAll } from '../db/seed';
 import { triggerScenario } from '../demo/scenarios';
 import type { InsightListener } from '../engine/pipeline';
+import { assertHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
 
 /**
@@ -24,6 +25,8 @@ export function demoRoutes(db: Db, onInsight: InsightListener): Router {
     if (req.params.id !== REF.householdId) {
       throw new ApiError(404, 'not_found', 'Only the reference demo household can be reset.');
     }
+    // Scenario/reset controls belong to the reference household's owner only.
+    assertHousehold(req, REF.householdId);
     resetAll(db);
     res.json({ data: { household_id: REF.householdId, reset: true } });
   });
@@ -37,6 +40,7 @@ export function demoRoutes(db: Db, onInsight: InsightListener): Router {
       if (req.params.id !== REF.householdId) {
         throw new ApiError(404, 'not_found', 'Scenarios run against the reference demo household.');
       }
+      assertHousehold(req, REF.householdId);
       const key = req.params.key as ScenarioKey;
       if (!SCENARIOS[key]) {
         throw new ApiError(404, 'unknown_scenario', `Unknown scenario '${key}'.`, {

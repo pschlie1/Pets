@@ -3,12 +3,15 @@ import { createHouseholdSchema, createPetSchema, linkDeviceSchema, patchPetSchem
 import type { Db } from '../db/connection';
 import { uuid } from '../db/connection';
 import { dailyMetricSeries, PET_METRICS, type PetMetric } from '../engine/aggregates';
+import { assertHousehold, petHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
 import { validate } from '../middleware/validate';
 
 export function householdRoutes(db: Db): Router {
   const r = Router();
 
+  // Creates a brand-new tenant; it cannot read or modify existing households,
+  // so it carries no cross-tenant risk. (Demo UI never calls it.)
   r.post('/households', validate(createHouseholdSchema), (req, res) => {
     const id = uuid();
     db.prepare(
@@ -18,6 +21,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.get('/households/:id', (req, res) => {
+    assertHousehold(req, req.params.id);
     const household = db
       .prepare(`SELECT * FROM households WHERE id = ? AND deleted_at IS NULL`)
       .get(req.params.id) as Record<string, unknown> | undefined;
@@ -32,6 +36,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.post('/households/:id/pets', validate(createPetSchema), (req, res) => {
+    assertHousehold(req, req.params.id);
     const household = db.prepare(`SELECT id FROM households WHERE id = ? AND deleted_at IS NULL`).get(req.params.id);
     if (!household) throw new ApiError(404, 'not_found', 'Household not found.');
 
@@ -70,6 +75,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.get('/pets/:id', (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     const pet = db
       .prepare(
         `SELECT p.*, b.breed_name, b.size_class, b.resting_hr_low, b.resting_hr_high, b.common_conditions, b.is_generic_fallback
@@ -89,6 +95,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.patch('/pets/:id', validate(patchPetSchema), (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     const pet = db.prepare(`SELECT id FROM pets WHERE id = ? AND deleted_at IS NULL`).get(req.params.id);
     if (!pet) throw new ApiError(404, 'not_found', 'Pet not found.');
     const fields = ['name', 'species', 'breed_id', 'date_of_birth', 'weight_lbs', 'sex'] as const;
@@ -105,6 +112,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.post('/pets/:id/devices', validate(linkDeviceSchema), (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     const pet = db.prepare(`SELECT id FROM pets WHERE id = ? AND deleted_at IS NULL`).get(req.params.id);
     if (!pet) throw new ApiError(404, 'not_found', 'Pet not found.');
     const device = db.prepare(`SELECT id FROM devices WHERE id = ? AND deleted_at IS NULL`).get(req.body.device_id);
@@ -119,6 +127,7 @@ export function householdRoutes(db: Db): Router {
 
   // Daily metric series for trend sparklines: rolling 24h buckets, oldest first.
   r.get('/pets/:id/metrics', (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     const metric = req.query.metric as PetMetric;
     if (!(PET_METRICS as readonly string[]).includes(metric)) {
       throw new ApiError(400, 'validation_error', `metric must be one of: ${PET_METRICS.join(', ')}`);
@@ -136,6 +145,7 @@ export function householdRoutes(db: Db): Router {
   });
 
   r.get('/pets/:id/baseline', (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     const metric = req.query.metric as string | undefined;
     const rows = metric
       ? db.prepare(`SELECT * FROM pet_baselines WHERE pet_id = ? AND metric = ?`).all(req.params.id, metric)

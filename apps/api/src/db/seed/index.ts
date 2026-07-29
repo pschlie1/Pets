@@ -163,6 +163,13 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       ...drinkingSeries(rng, { deviceId: REF2.fountain, petId: REF2.ash, days: SEED_DAYS, endMs: now, mlPerVisit: 30 }),
     ]);
 
+    // Demo identities — one owner per household, proving tenant isolation.
+    const ownerStmt = db.prepare(
+      `INSERT INTO owners (id, email, display_name, household_id) VALUES (?, ?, ?, ?)`,
+    );
+    ownerStmt.run('owner_5001', 'peter@connectedcare.demo', 'Peter (Baxter & Wrigley)', REF.householdId);
+    ownerStmt.run('owner_6001', 'sam@connectedcare.demo', 'Sam (Duke & Ash)', REF2.householdId);
+
     // Baselines computed from the actual seeded telemetry, not hardcoded.
     for (const petId of [REF.baxter, REF.wrigley, REF2.duke, REF2.ash]) {
       recomputeBaselines(db, petId, now);
@@ -174,6 +181,7 @@ export function seedAll(db: Db, now: number = Date.now()): void {
 export function resetAll(db: Db, now: number = Date.now()): void {
   db.transaction(() => {
     for (const table of [
+      'owners', // references households; must go before it (no CASCADE)
       'vet_shares', // references pets + households; must go before both (no CASCADE)
       'insights',
       'telemetry_events',

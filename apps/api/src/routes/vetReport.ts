@@ -3,6 +3,7 @@ import { vetShareSchema } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { uuid } from '../db/connection';
 import { activeInsights, buildVetReport, parseShare } from '../reports/vetReport';
+import { assertHousehold, petHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
 import { validate } from '../middleware/validate';
 
@@ -11,6 +12,7 @@ export function vetReportRoutes(db: Db): Router {
 
   r.get('/pets/:id/vet-report', async (req, res, next) => {
     try {
+      assertHousehold(req, petHousehold(db, req.params.id));
       const report = await buildVetReport(db, req.params.id);
       if (!report) throw new ApiError(404, 'not_found', 'Pet not found.');
       res.json({ data: report });
@@ -29,6 +31,7 @@ export function vetReportRoutes(db: Db): Router {
       .prepare(`SELECT id, household_id FROM pets WHERE id = ? AND deleted_at IS NULL`)
       .get(req.params.id) as { id: string; household_id: string } | undefined;
     if (!pet) throw new ApiError(404, 'not_found', 'Pet not found.');
+    assertHousehold(req, pet.household_id);
 
     const id = uuid();
     const insightIds = activeInsights(db, pet.id).map((i) => i.id);

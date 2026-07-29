@@ -3,6 +3,7 @@ import { KNOWN_EVENT_TYPES, telemetryEnvelopeSchema } from '@connected-care/shar
 import type { Db } from '../db/connection';
 import { nowIso, uuid } from '../db/connection';
 import { evaluateAfterEvent, type InsightListener } from '../engine/pipeline';
+import { assertHousehold, deviceHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
 import { validate } from '../middleware/validate';
 
@@ -18,6 +19,7 @@ export function telemetryRoutes(db: Db, onInsight: InsightListener): Router {
         .prepare(`SELECT id, household_id, device_type, deleted_at FROM devices WHERE id = ?`)
         .get(device_id) as { id: string; household_id: string; device_type: string; deleted_at: string | null } | undefined;
       if (!device) throw new ApiError(404, 'device_not_found', `No registered device with id ${device_id}.`);
+      assertHousehold(req, device.household_id);
       if (device.deleted_at) throw new ApiError(409, 'device_deactivated', 'This device has been deactivated.');
 
       if (Date.parse(occurred_at) > Date.now() + 24 * 3600_000) {
@@ -77,6 +79,7 @@ export function telemetryRoutes(db: Db, onInsight: InsightListener): Router {
   });
 
   r.get('/devices/:id/status', (req, res) => {
+    assertHousehold(req, deviceHousehold(db, req.params.id));
     const device = db
       .prepare(`SELECT * FROM devices WHERE id = ? AND deleted_at IS NULL`)
       .get(req.params.id) as Record<string, unknown> | undefined;

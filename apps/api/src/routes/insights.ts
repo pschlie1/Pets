@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { URGENCY_TIERS, urgencyRank, type Urgency } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { nowIso } from '../db/connection';
+import { assertHousehold, petHousehold } from '../middleware/auth';
 import { ApiError } from '../middleware/errors';
+import type { Request } from 'express';
 
 export function insightRoutes(db: Db): Router {
   const r = Router();
 
   r.get('/pets/:id/insights', (req, res) => {
+    assertHousehold(req, petHousehold(db, req.params.id));
     let rows = db
       .prepare(
         `SELECT * FROM insights WHERE pet_id = ? AND generated_at >= COALESCE(?, '') ORDER BY generated_at DESC LIMIT 100`,
@@ -22,6 +25,7 @@ export function insightRoutes(db: Db): Router {
 
   // Household rollup — powers the peer-comparison view.
   r.get('/households/:id/insights', (req, res) => {
+    assertHousehold(req, req.params.id);
     const page = Math.max(parseInt((req.query.page as string) ?? '1', 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) ?? '20', 10) || 20, 1), 100);
     const petId = (req.query.pet_id as string) ?? null;
@@ -49,9 +53,12 @@ export function insightRoutes(db: Db): Router {
     });
   });
 
-  function setStatus(id: string, status: 'acknowledged' | 'dismissed' | 'seen') {
-    const row = db.prepare(`SELECT id FROM insights WHERE id = ?`).get(id);
+  function setStatus(req: Request, id: string, status: 'acknowledged' | 'dismissed' | 'seen') {
+    const row = db.prepare(`SELECT id, household_id FROM insights WHERE id = ?`).get(id) as
+      | { id: string; household_id: string }
+      | undefined;
     if (!row) throw new ApiError(404, 'not_found', 'Insight not found.');
+    assertHousehold(req, row.household_id);
     db.prepare(`UPDATE insights SET acknowledged_status = ?, acknowledged_at = ? WHERE id = ?`).run(
       status,
       status === 'seen' ? null : nowIso(),
@@ -60,14 +67,17 @@ export function insightRoutes(db: Db): Router {
     return db.prepare(`SELECT * FROM insights WHERE id = ?`).get(id);
   }
 
-  r.post('/insights/:id/acknowledge', (req, res) => res.json({ data: setStatus(req.params.id, 'acknowledged') }));
-  r.post('/insights/:id/dismiss', (req, res) => res.json({ data: setStatus(req.params.id, 'dismissed') }));
+  r.post('/insights/:id/acknowledge', (req, res) => res.json({ data: setStatus(req, req.params.id, 'acknowledged') }));
+  r.post('/insights/:id/dismiss', (req, res) => res.json({ data: setStatus(req, req.params.id, 'dismissed') }));
 
   // Routes an insight to the dealer associate queue (no console UI in the demo —
   // the flag drives the "associate alerted" state in the owner app).
   r.post('/insights/:id/route', (req, res) => {
-    const row = db.prepare(`SELECT id FROM insights WHERE id = ?`).get(req.params.id);
+    const row = db.prepare(`SELECT id, household_id FROM insights WHERE id = ?`).get(req.params.id) as
+      | { id: string; household_id: string }
+      | undefined;
     if (!row) throw new ApiError(404, 'not_found', 'Insight not found.');
+    assertHousehold(req, row.household_id);
     db.prepare(`UPDATE insights SET routed_to_associate = 1 WHERE id = ?`).run(req.params.id);
     res.json({ data: db.prepare(`SELECT * FROM insights WHERE id = ?`).get(req.params.id) });
   });

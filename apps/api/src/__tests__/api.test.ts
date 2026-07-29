@@ -5,14 +5,15 @@ import { buildApp } from '../app';
 import { getDb } from '../db/connection';
 import { REF, seedAll } from '../db/seed';
 
-const AUTH = ['Authorization', 'Bearer test-token'] as const;
-
 let app: Express;
+let AUTH: readonly ['Authorization', string] = ['Authorization', 'Bearer unset'];
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb(':memory:');
   seedAll(db);
   app = buildApp(db).app;
+  const login = await request(app).post('/v1/auth/login').send({ email: 'peter@connectedcare.demo' });
+  AUTH = ['Authorization', `Bearer ${login.body.data.token}`] as const;
 });
 
 describe('api documentation', () => {

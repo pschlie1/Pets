@@ -144,6 +144,18 @@ CREATE INDEX IF NOT EXISTS idx_insights_household_time ON insights(household_id,
 CREATE INDEX IF NOT EXISTS idx_insights_pet ON insights(pet_id) WHERE pet_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_insights_dedupe ON insights(dedupe_key) WHERE dedupe_key IS NOT NULL;
 
+-- Owners: the identity → tenant binding. An authenticated owner's token
+-- carries their household_id claim, which every tenant-scoped endpoint
+-- enforces. PRODUCTION NOTE: a real IdP owns credentials; this table only
+-- maps identities to households.
+CREATE TABLE IF NOT EXISTS owners (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    household_id TEXT NOT NULL REFERENCES households(id),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- Vet sharing: a share is a recorded hand-off of the live report, not a
 -- stored snapshot. insight_ids is TEXT-holding-JSON (parsed in the route).
 CREATE TABLE IF NOT EXISTS vet_shares (
