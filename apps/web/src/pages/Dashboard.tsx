@@ -48,7 +48,12 @@ export function Dashboard() {
       )}
 
       <section>
-        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Your pets</h2>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">Your pets</h2>
+          <Link to="/health" className="text-sm font-bold text-action hover:underline">
+            Health Center →
+          </Link>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {household.pets.map((pet) => (
             <PetCard key={pet.id} pet={pet} insights={insights} />

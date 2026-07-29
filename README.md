@@ -215,5 +215,5 @@ rewrites in `vercel.json`.
 | `apps/api/src/routes/` | One Express router per API domain |
 | `apps/api/src/demo/` | The nine scenario injectors |
 | `apps/api/src/__tests__/`, `engine/__tests__/` | Vitest suites (scoring + full-stack integration) |
-| `apps/web/src/pages/` | Dashboard, PetDetail, Insights, Chat, Equipment, DemoPanel |
+| `apps/web/src/pages/` | Dashboard, SafetyCenter, HealthCenter, PetDetail, Insights, Chat, Equipment, VetReport, DemoPanel |
 | `apps/web/src/theme.css` | The entire PetSafe brand in one Tailwind `@theme` block |
