@@ -599,6 +599,65 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/households/{householdId}/containment/heatmap:
+    get:
+      tags: [Containment & Safety]
+      summary: Movement heat map — where each dog spends time
+      description: |
+        Bins each collared pet's `boundary_check` GPS positions over the period
+        into a fixed grid (24×18, row 0 = north edge) covering the padded
+        bounding box of the yard polygon. Returns non-zero cells only. `bbox`
+        is null when the household has no configured boundary.
+      parameters:
+        - { $ref: '#/components/parameters/householdId' }
+        - name: days
+          in: query
+          schema: { type: integer, default: 7, minimum: 1, maximum: 21 }
+        - name: pet_id
+          in: query
+          schema: { type: string }
+          description: Restrict to one pet; omit for all collared pets.
+      responses:
+        '200':
+          description: The binned movement grid per pet.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/Heatmap' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/containment/history:
+    get:
+      tags: [Containment & Safety]
+      summary: Day review — one calendar day of movement per dog
+      description: |
+        Everything each collared pet did on one household-local calendar day
+        (timezone in the response): the ordered GPS path, any boundary events
+        (breach / return with positions), and movement stats — distance
+        roamed, check-in count, boundary event count, busiest hour.
+        `available_dates` lists recent local dates for a date picker.
+      parameters:
+        - { $ref: '#/components/parameters/householdId' }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          example: '2026-07-28'
+      responses:
+        '200':
+          description: The day's movement record.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { data: { $ref: '#/components/schemas/DayHistory' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /v1/households/{householdId}/stream:
     get:
       tags: [Realtime]
@@ -913,6 +972,86 @@ components:
         limit: { type: integer }
         total: { type: integer }
         total_pages: { type: integer }
+
+    Heatmap:
+      type: object
+      properties:
+        household_id: { type: string }
+        days: { type: integer }
+        cols: { type: integer, example: 24 }
+        rows: { type: integer, example: 18 }
+        bbox:
+          type: [object, 'null']
+          description: Padded yard bounding box; null when no boundary is configured.
+          properties:
+            min_lat: { type: number }
+            max_lat: { type: number }
+            min_lng: { type: number }
+            max_lng: { type: number }
+        pets:
+          type: array
+          items:
+            type: object
+            properties:
+              pet_id: { type: string }
+              name: { type: string }
+              total_points: { type: integer }
+              max_cell_count: { type: integer }
+              cells:
+                type: array
+                description: Non-zero grid cells; row 0 is the north edge.
+                items:
+                  type: object
+                  properties:
+                    r: { type: integer }
+                    c: { type: integer }
+                    count: { type: integer }
+
+    DayHistory:
+      type: object
+      properties:
+        household_id: { type: string }
+        date: { type: string, format: date }
+        timezone: { type: string, example: America/Chicago }
+        available_dates:
+          type: array
+          items: { type: string, format: date }
+        pets:
+          type: array
+          items:
+            type: object
+            properties:
+              pet_id: { type: string }
+              name: { type: string }
+              points:
+                type: array
+                description: Ordered GPS check-ins across the day.
+                items:
+                  type: object
+                  properties:
+                    t: { type: string, format: date-time }
+                    lat: { type: number }
+                    lng: { type: number }
+              events:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    occurred_at: { type: string, format: date-time }
+                    kind: { type: string, enum: [breach, return_to_zone] }
+                    position:
+                      type: [object, 'null']
+                      properties:
+                        lat: { type: number }
+                        lng: { type: number }
+                    detail: { type: string }
+              stats:
+                type: object
+                properties:
+                  distance_m: { type: integer }
+                  checks: { type: integer }
+                  boundary_events: { type: integer }
+                  busiest_hour: { type: [integer, 'null'], description: Local hour 0-23 with the most movement. }
 
     Owner:
       type: object

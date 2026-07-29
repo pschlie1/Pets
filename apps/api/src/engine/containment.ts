@@ -1,10 +1,16 @@
 import {
   SIGNAL_LOSS_MIN,
   BOUNDARY_CHECK_INTERVAL_MIN,
+  HOUSEHOLD_TZ,
   YARD_GEOMETRIES,
   type ContainmentEvent,
   type ContainmentPetStatus,
   type ContainmentStatus,
+  type DayBoundaryEvent,
+  type DayHistoryResponse,
+  type DayPathPoint,
+  type HeatmapPet,
+  type HeatmapResponse,
   type LatLng,
 } from '@connected-care/shared';
 import type { Db } from '../db/connection';
@@ -264,4 +270,219 @@ function buildTimeline(db: Db, householdId: string, now: number): ContainmentEve
   }
 
   return events.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 20);
+}
+
+/* ------------------------------------------------------------------------- *
+ * Movement history: heat map + day review, both fed purely by the
+ * boundary_check GPS record that seeding and top-up already maintain.
+ * ------------------------------------------------------------------------- */
+
+const HEAT_COLS = 24;
+const HEAT_ROWS = 18;
+/** Same padding the yard map uses, so heat cells line up with the rendered yard. */
+const HEAT_PAD = 0.22;
+
+interface CheckRow {
+  pet_id: string;
+  payload: string;
+  occurred_at: string;
+}
+
+/** Local meters per degree at the yard's latitude (equirectangular). */
+function metersPerDegree(lat: number): { mLat: number; mLng: number } {
+  return { mLat: 110_574, mLng: 111_320 * Math.cos((lat * Math.PI) / 180) };
+}
+
+/** Bins each collared pet's boundary_check positions into a fixed grid over the yard. */
+export function getMovementHeatmap(
+  db: Db,
+  householdId: string,
+  days: number,
+  petId: string | null,
+  now: number = Date.now(),
+): HeatmapResponse {
+  const yard = YARD_GEOMETRIES[householdId];
+  const empty: HeatmapResponse = {
+    household_id: householdId,
+    days,
+    cols: HEAT_COLS,
+    rows: HEAT_ROWS,
+    bbox: null,
+    pets: [],
+  };
+  if (!yard || yard.polygon.length === 0) return empty;
+
+  const lats = yard.polygon.map((p) => p.lat);
+  const lngs = yard.polygon.map((p) => p.lng);
+  const latSpan = Math.max(...lats) - Math.min(...lats);
+  const lngSpan = Math.max(...lngs) - Math.min(...lngs);
+  const bbox = {
+    min_lat: Math.min(...lats) - latSpan * HEAT_PAD,
+    max_lat: Math.max(...lats) + latSpan * HEAT_PAD,
+    min_lng: Math.min(...lngs) - lngSpan * HEAT_PAD,
+    max_lng: Math.max(...lngs) + lngSpan * HEAT_PAD,
+  };
+
+  const since = new Date(now - days * 24 * 60 * MIN).toISOString();
+  const pets: HeatmapPet[] = [];
+  for (const collar of collarsForHousehold(db, householdId)) {
+    if (petId && collar.pet_id !== petId) continue;
+    const rows = db
+      .prepare(
+        `SELECT payload FROM telemetry_events
+         WHERE device_id = ? AND event_type = 'boundary_check' AND occurred_at >= ?`,
+      )
+      .all(collar.device_id, since) as { payload: string }[];
+
+    const counts = new Map<number, number>();
+    let total = 0;
+    for (const row of rows) {
+      const p = JSON.parse(row.payload) as { lat?: number; lng?: number };
+      if (typeof p.lat !== 'number' || typeof p.lng !== 'number') continue;
+      // Row 0 is the north edge so the grid reads like the rendered map.
+      const c = Math.floor(((p.lng - bbox.min_lng) / (bbox.max_lng - bbox.min_lng)) * HEAT_COLS);
+      const r = Math.floor(((bbox.max_lat - p.lat) / (bbox.max_lat - bbox.min_lat)) * HEAT_ROWS);
+      if (c < 0 || c >= HEAT_COLS || r < 0 || r >= HEAT_ROWS) continue;
+      counts.set(r * HEAT_COLS + c, (counts.get(r * HEAT_COLS + c) ?? 0) + 1);
+      total += 1;
+    }
+    const cells = [...counts.entries()].map(([key, count]) => ({
+      r: Math.floor(key / HEAT_COLS),
+      c: key % HEAT_COLS,
+      count,
+    }));
+    pets.push({
+      pet_id: collar.pet_id,
+      name: collar.pet_name,
+      total_points: total,
+      max_cell_count: cells.reduce((m, cell) => Math.max(m, cell.count), 0),
+      cells,
+    });
+  }
+  return { ...empty, bbox, pets };
+}
+
+/** YYYY-MM-DD of an instant in the household's timezone. */
+export function localDate(ms: number, tz: string = HOUSEHOLD_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(ms));
+}
+
+/** Local hour (0-23) of an ISO instant in the household's timezone. */
+function localHour(iso: string, tz: string = HOUSEHOLD_TZ): number {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(
+      new Date(iso),
+    ),
+  );
+}
+
+/**
+ * UTC window [start, end) covering one household-local calendar day. Walks
+ * hour-by-hour instead of assuming a fixed offset, so DST days stay correct.
+ */
+function localDayWindow(date: string, tz: string = HOUSEHOLD_TZ): { start: number; end: number } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const guess = Date.parse(`${date}T00:00:00Z`);
+  if (Number.isNaN(guess)) return null;
+  // Scan a generous window around the naive UTC midnight for instants whose
+  // local date matches; the min/max hour edges bound the local day.
+  let start = Number.POSITIVE_INFINITY;
+  let end = Number.NEGATIVE_INFINITY;
+  for (let t = guess - 30 * 60 * MIN; t <= guess + 54 * 60 * MIN; t += 60 * MIN) {
+    if (localDate(t, tz) === date) {
+      start = Math.min(start, t);
+      end = Math.max(end, t + 60 * MIN);
+    }
+  }
+  return Number.isFinite(start) ? { start, end } : null;
+}
+
+/** Everything each collared pet did on one household-local calendar day. */
+export function getDayHistory(
+  db: Db,
+  householdId: string,
+  date: string,
+  now: number = Date.now(),
+): DayHistoryResponse | null {
+  const window = localDayWindow(date);
+  if (!window) return null;
+  const startIso = new Date(window.start).toISOString();
+  const endIso = new Date(Math.min(window.end, now)).toISOString();
+  const { mLat, mLng } = metersPerDegree(YARD_GEOMETRIES[householdId]?.center.lat ?? 41.9);
+
+  const pets = collarsForHousehold(db, householdId).map((collar) => {
+    const checks = db
+      .prepare(
+        `SELECT pet_id, payload, occurred_at FROM telemetry_events
+         WHERE device_id = ? AND event_type = 'boundary_check' AND occurred_at >= ? AND occurred_at < ?
+         ORDER BY occurred_at ASC`,
+      )
+      .all(collar.device_id, startIso, endIso) as CheckRow[];
+
+    const points: DayPathPoint[] = [];
+    for (const row of checks) {
+      const p = JSON.parse(row.payload) as { lat?: number; lng?: number };
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+        points.push({ t: row.occurred_at, lat: p.lat, lng: p.lng });
+      }
+    }
+
+    let distance = 0;
+    const hourly = new Map<number, number>();
+    for (let i = 1; i < points.length; i++) {
+      const step = Math.hypot(
+        (points[i].lat - points[i - 1].lat) * mLat,
+        (points[i].lng - points[i - 1].lng) * mLng,
+      );
+      distance += step;
+      const hour = localHour(points[i].t);
+      hourly.set(hour, (hourly.get(hour) ?? 0) + step);
+    }
+    const busiest = [...hourly.entries()].sort((a, b) => b[1] - a[1])[0];
+
+    const events: DayBoundaryEvent[] = (
+      db
+        .prepare(
+          `SELECT payload, occurred_at FROM telemetry_events
+           WHERE device_id = ? AND event_type = 'boundary_event' AND occurred_at >= ? AND occurred_at < ?
+           ORDER BY occurred_at ASC`,
+        )
+        .all(collar.device_id, startIso, endIso) as { payload: string; occurred_at: string }[]
+    ).map((row) => {
+      const p = JSON.parse(row.payload) as {
+        status?: string;
+        minutes_outside_zone?: number;
+        last_known_position?: LatLng;
+        position?: LatLng;
+      };
+      const breach = p.status === 'breach';
+      return {
+        occurred_at: row.occurred_at,
+        kind: breach ? ('breach' as const) : ('return_to_zone' as const),
+        position: (breach ? p.last_known_position : p.position) ?? null,
+        detail: breach
+          ? `crossed the boundary${p.minutes_outside_zone ? ` — ${p.minutes_outside_zone} min outside` : ''}`
+          : `returned to the safe zone${p.minutes_outside_zone ? ` after ${p.minutes_outside_zone} min` : ''}`,
+      };
+    });
+
+    return {
+      pet_id: collar.pet_id,
+      name: collar.pet_name,
+      points,
+      events,
+      stats: {
+        distance_m: Math.round(distance),
+        checks: points.length,
+        boundary_events: events.length,
+        busiest_hour: busiest ? busiest[0] : null,
+      },
+    };
+  });
+
+  // The last 7 household-local dates that actually have movement data.
+  const available_dates: string[] = [];
+  for (let d = 0; d < 7; d++) available_dates.push(localDate(now - d * 24 * 60 * MIN));
+
+  return { household_id: householdId, date, timezone: HOUSEHOLD_TZ, available_dates, pets };
 }

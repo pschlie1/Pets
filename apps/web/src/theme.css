@@ -42,6 +42,10 @@
   /* Yard map surfaces (Safety Center SVG reads these via var()). */
   --color-yard-ground: #eef1f5;
   --color-yard-grass: #ddefd8;
+  /* Movement heat map ramp: cool navy → warm amber over the grass. */
+  --color-heat-low: #174b93;
+  --color-heat-high: #f59e0b;
+  --color-heat-path: #083874;
 
   --radius-2xl: 1.25rem;
 }

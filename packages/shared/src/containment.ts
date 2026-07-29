@@ -37,6 +37,13 @@ export const YARD_GEOMETRIES: Record<string, YardGeometry> = {
   },
 };
 
+/**
+ * Household timezone for calendar-day grouping in movement history.
+ * PRODUCTION NOTE: derived from the household's address in production; the
+ * demo households are both Illinois, so one constant serves.
+ */
+export const HOUSEHOLD_TZ = 'America/Chicago';
+
 /** Collar GPS check-in cadence. */
 export const BOUNDARY_CHECK_INTERVAL_MIN = 15;
 /** A check-in older than this reads as "stale" in the UI. */
@@ -91,4 +98,69 @@ export interface ContainmentStatus {
   overall: ContainmentOverall;
   pets: ContainmentPetStatus[];
   recent_events: ContainmentEvent[];
+}
+
+/** One non-empty cell of the movement heat map grid (row 0 = north edge). */
+export interface HeatmapCell {
+  r: number;
+  c: number;
+  count: number;
+}
+
+export interface HeatmapPet {
+  pet_id: string;
+  name: string;
+  total_points: number;
+  max_cell_count: number;
+  cells: HeatmapCell[];
+}
+
+/** Where each dog spends time: boundary_check positions binned over a period. */
+export interface HeatmapResponse {
+  household_id: string;
+  days: number;
+  cols: number;
+  rows: number;
+  /** Padded bounding box of the yard polygon; null when no yard is configured. */
+  bbox: { min_lat: number; max_lat: number; min_lng: number; max_lng: number } | null;
+  pets: HeatmapPet[];
+}
+
+/** One GPS check-in on a day's movement path. */
+export interface DayPathPoint {
+  t: string;
+  lat: number;
+  lng: number;
+}
+
+/** A boundary_event (breach / return) that happened on the reviewed day. */
+export interface DayBoundaryEvent {
+  occurred_at: string;
+  kind: 'breach' | 'return_to_zone';
+  position: LatLng | null;
+  detail: string;
+}
+
+export interface DayHistoryPet {
+  pet_id: string;
+  name: string;
+  points: DayPathPoint[];
+  events: DayBoundaryEvent[];
+  stats: {
+    distance_m: number;
+    checks: number;
+    boundary_events: number;
+    /** Local hour (0-23) with the most movement, null when under 2 points. */
+    busiest_hour: number | null;
+  };
+}
+
+/** What each dog actually did on one calendar day (household-local). */
+export interface DayHistoryResponse {
+  household_id: string;
+  date: string;
+  timezone: string;
+  /** Recent household-local dates that have movement data, newest first. */
+  available_dates: string[];
+  pets: DayHistoryPet[];
 }

@@ -2,6 +2,8 @@ import type {
   AgentReply,
   ApiErrorBody,
   ContainmentStatus,
+  DayHistoryResponse,
+  HeatmapResponse,
   Insight,
   LoginResponse,
   Owner,
@@ -107,6 +109,12 @@ export const api = {
   getDemoIdentities: () => request<Owner[]>('/v1/auth/demo-identities'),
   getHousehold: () => request<HouseholdDetail>(`/v1/households/${sessionHouseholdId}`),
   getContainment: () => request<ContainmentStatus>(`/v1/households/${sessionHouseholdId}/containment`),
+  getContainmentHeatmap: (days: number, petId?: string) =>
+    request<HeatmapResponse>(
+      `/v1/households/${sessionHouseholdId}/containment/heatmap?days=${days}${petId ? `&pet_id=${petId}` : ''}`,
+    ),
+  getContainmentHistory: (date: string) =>
+    request<DayHistoryResponse>(`/v1/households/${sessionHouseholdId}/containment/history?date=${date}`),
   getPet: (petId: string) => request<PetDetailData>(`/v1/pets/${petId}`),
   getPetMetrics: (petId: string, metric: string, days = 14) =>
     request<MetricSeries>(`/v1/pets/${petId}/metrics?metric=${metric}&days=${days}`),

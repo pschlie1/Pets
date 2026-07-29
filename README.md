@@ -141,6 +141,12 @@ its own surface at `/safety`, powered by `GET /v1/households/{id}/containment`:
   with each dog positioned from its collar's GPS `boundary_check` events. A breached pet
   pulls the view out and renders outside the fence with a pulsing halo; a silent collar
   renders as a ghost with a "?".
+- **Heat map view** — each dog's check-ins over 24 h / 7 / 21 days binned server-side
+  (`GET .../containment/heatmap`) into a yard grid: where they actually spend their time,
+  with a plain-language "favorite spot" read-out.
+- **Day review view** — pick any recent day (`GET .../containment/history?date=`) and
+  replay that dog's movement: scrub or play the GPS path across the day, with distance
+  roamed, check-ins, boundary events, and busiest hour computed from the record.
 - **Per-pet containment cards** — Protected / Outside safe zone / Signal lost, minutes since
   last check-in, collar battery, signal strength.
 - **Boundary activity timeline** — breaches, safe returns, and signal losses over 48 hours.
