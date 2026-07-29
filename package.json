@@ -14,7 +14,7 @@
     "seed": "npm run seed -w apps/api",
     "test": "npm run test -w apps/api",
     "build": "npm run build -w apps/web",
-    "bundle:api": "esbuild apps/api/src/serverless.ts --bundle --platform=node --target=node22 --format=cjs --outfile=api/index.js --external:better-sqlite3 --external:swagger-ui-dist",
+    "bundle:api": "esbuild apps/api/src/serverless.ts --bundle --platform=node --target=node22 --format=cjs --outfile=apps/api/dist/serverless.cjs --external:better-sqlite3 --external:swagger-ui-dist",
     "vercel-build": "npm run build && npm run bundle:api"
   },
   "devDependencies": {
