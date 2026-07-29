@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { consumableForDevice, orderSchema, type Order } from '@connected-care/shared';
+import { CONSUMABLES, consumableForDevice, orderSchema, type Order } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { uuid } from '../db/connection';
 import { assertHousehold, deviceHousehold } from '../middleware/auth';
@@ -13,6 +13,12 @@ import { validate } from '../middleware/validate';
  */
 export function orderRoutes(db: Db): Router {
   const r = Router();
+
+  // Reference data, like /v1/breeds: the client renders prices and labels
+  // from here — never from anything bundled into the app.
+  r.get('/catalog/consumables', (_req, res) => {
+    res.json({ data: CONSUMABLES });
+  });
 
   r.post('/orders', validate(orderSchema), (req, res) => {
     const { device_id, sku } = req.body as { device_id: string; sku: string };

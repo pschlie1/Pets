@@ -3,19 +3,19 @@ import type { Owner } from '@connected-care/shared';
 import { api, setSession } from '../api/client';
 
 /**
- * Demo session: on boot the app signs in as the last-used demo identity
- * (defaulting to the reference household's owner) so the demo stays
- * walk-up-ready. The household everything renders for comes from the
- * authenticated owner's claim — never hardcoded.
+ * Demo session: on boot the app signs in as the last-used demo identity,
+ * falling back to the first identity the API's demo-identities endpoint
+ * lists — so even the bootstrap identity is API-fed, never hardcoded. The
+ * household everything renders for comes from the authenticated owner's
+ * claim.
  */
 
 const EMAIL_KEY = 'cc-demo-email';
-const DEFAULT_EMAIL = 'peter@connectedcare.demo';
 
 interface AuthState {
   owner: Owner | null;
   error: string | null;
-  switchAccount: (email: string) => Promise<void>;
+  switchAccount: (email: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -31,22 +31,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(EMAIL_KEY, nextOwner.email);
       setError(null);
       setOwner(nextOwner);
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     }
   }, []);
 
   useEffect(() => {
-    const email = localStorage.getItem(EMAIL_KEY) ?? DEFAULT_EMAIL;
-    void loginAs(email).then(() => {
-      // A stale stored identity (e.g. after a reseed) falls back to the default.
-      if (email !== DEFAULT_EMAIL) {
-        setOwner((current) => {
-          if (!current) void loginAs(DEFAULT_EMAIL);
-          return current;
-        });
+    void (async () => {
+      const stored = localStorage.getItem(EMAIL_KEY);
+      // A stale stored identity (e.g. after a reseed) falls through to the
+      // API-listed default.
+      if (stored && (await loginAs(stored))) return;
+      try {
+        const identities = await api.getDemoIdentities();
+        if (identities[0]) await loginAs(identities[0].email);
+        else setError('No demo identities are seeded.');
+      } catch (e) {
+        setError((e as Error).message);
       }
-    });
+    })();
   }, [loginAs]);
 
   return <Ctx.Provider value={{ owner, error, switchAccount: loginAs }}>{children}</Ctx.Provider>;

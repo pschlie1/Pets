@@ -86,6 +86,14 @@ describe('milestones', () => {
 });
 
 describe('replenishment orders', () => {
+  it('serves the consumables catalog (clients never bundle prices)', async () => {
+    const res = await request(app).get('/v1/catalog/consumables').set(...AUTH);
+    expect(res.status).toBe(200);
+    const skus = (res.body.data as { sku: string; price_cents: number }[]).map((c) => c.sku);
+    expect(skus).toContain('filt-std-4pk');
+    expect(skus).toContain('batt-rfa-67');
+  });
+
   it('places a matching consumable order with an ETA, then lists it', async () => {
     const res = await request(app)
       .post('/v1/orders')

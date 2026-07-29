@@ -1,24 +1,32 @@
 import { useEffect, useState } from 'react';
-import { consumableForDevice, type Order } from '@connected-care/shared';
+import type { Consumable, Order } from '@connected-care/shared';
 import { api } from '../api/client';
 
 /**
- * One-tap consumable replenishment. Shows the matching consumable for the
- * device; once an order exists (placed here or earlier), shows its ETA
- * instead — the CTA can never double-order.
+ * One-tap consumable replenishment. The catalog (label, price, sku) comes
+ * from the API — never from anything bundled into the app — so every client
+ * shows exactly what the platform charges. Once an order exists (placed here
+ * or earlier), the CTA shows its ETA instead and can never double-order.
  */
 export function OrderButton({ deviceId, deviceType }: { deviceId: string; deviceType: string }) {
-  const consumable = consumableForDevice(deviceType);
+  const [consumable, setConsumable] = useState<Consumable | null | undefined>(undefined);
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!consumable) return;
     void api
-      .getOrders()
-      .then((orders) => setOrder(orders.find((o) => o.device_id === deviceId && o.sku === consumable.sku) ?? null))
-      .catch(() => setOrder(null));
-  }, [deviceId, consumable?.sku]);
+      .getConsumables()
+      .then((catalog) => {
+        const match = catalog.find((c) => c.device_type === deviceType) ?? null;
+        setConsumable(match);
+        if (!match) return setOrder(null);
+        void api
+          .getOrders()
+          .then((orders) => setOrder(orders.find((o) => o.device_id === deviceId && o.sku === match.sku) ?? null))
+          .catch(() => setOrder(null));
+      })
+      .catch(() => setConsumable(null));
+  }, [deviceId, deviceType]);
 
   if (!consumable || order === undefined) return null;
 
