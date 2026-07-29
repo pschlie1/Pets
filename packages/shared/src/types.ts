@@ -230,7 +230,8 @@ export type DispatchStep = 'alerted' | 'reviewing' | 'followed_up';
 /** The household's dealer plus live dispatch state for a routed emergency. */
 export interface DealerStatus {
   household_id: string;
-  dealer: Dealer;
+  /** Null when no dealer serves this household yet. */
+  dealer: Dealer | null;
   dispatch: {
     insight_id: string;
     summary: string;

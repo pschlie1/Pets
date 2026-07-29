@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { VetReport as VetReportData, VetShare } from '@connected-care/shared';
+import type { VetReport as VetReportData, VetShare, VetShareStage, VetShareWithStatus } from '@connected-care/shared';
 import { api } from '../api/client';
 import { ShareDialog } from '../components/ShareDialog';
 import { TrendCard } from '../components/TrendCard';
 import { UrgencyBadge } from '../components/UrgencyBadge';
 import { TREND_METRICS } from '../metrics';
+
+const STAGE_CHIP: Record<VetShareStage, { label: string; cls: string }> = {
+  sent: { label: '📤 Sent', cls: 'bg-cream text-gray-500' },
+  delivered: { label: '📬 Delivered', cls: 'bg-tier-monitor-soft text-tier-monitor' },
+  viewed: { label: '👀 Viewed by clinic', cls: 'bg-tier-attention-soft text-tier-attention' },
+  reviewed: { label: '✅ Reviewed', cls: 'bg-safe-soft text-safe' },
+};
 
 function compactSummary(report: VetReportData): string {
   const lines = [
@@ -48,6 +55,7 @@ async function copyText(text: string): Promise<boolean> {
 export function VetReport() {
   const { petId } = useParams<{ petId: string }>();
   const [report, setReport] = useState<VetReportData | null>(null);
+  const [shares, setShares] = useState<VetShareWithStatus[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -55,9 +63,22 @@ export function VetReport() {
     if (petId) void api.getVetReport(petId).then(setReport);
   }, [petId]);
 
+  // The share stages advance server-side with time (sent → delivered → viewed
+  // → reviewed), so poll while the page is open to close the loop live.
+  useEffect(() => {
+    if (!petId) return;
+    const load = () => void api.getVetShares(petId).then(setShares).catch(() => undefined);
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [petId]);
+
   if (!report) return <p className="p-8 text-gray-400">Assembling report…</p>;
 
-  const onShared = (share: VetShare) => setReport({ ...report, shares: [share, ...report.shares] });
+  const onShared = (share: VetShare) => {
+    setReport({ ...report, shares: [share, ...report.shares] });
+    void api.getVetShares(share.pet_id).then(setShares).catch(() => undefined);
+  };
 
   const copySummary = async () => {
     if (await copyText(compactSummary(report))) {
@@ -237,14 +258,20 @@ export function VetReport() {
 
         <section className="mt-6 border-t border-black/5 pt-4">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">Share history</h2>
-          {report.shares.length === 0 ? (
+          {shares.length === 0 ? (
             <p className="mt-2 text-sm text-gray-400">Not shared yet.</p>
           ) : (
-            <ul className="mt-2 space-y-1 text-sm">
-              {report.shares.map((s) => (
+            <ul className="mt-2 space-y-2 text-sm">
+              {shares.map((s) => (
                 <li key={s.id}>
-                  ✅ Shared with <span className="font-bold">{s.recipient}</span> on{' '}
-                  {new Date(s.shared_at).toLocaleString()} ({s.method})
+                  <span className={`mr-2 rounded-full px-2.5 py-0.5 text-xs font-bold ${STAGE_CHIP[s.stage].cls}`}>
+                    {STAGE_CHIP[s.stage].label}
+                  </span>
+                  <span className="font-bold">{s.recipient}</span> · {new Date(s.shared_at).toLocaleString()} (
+                  {s.method})
+                  {s.clinic_note && (
+                    <p className="mt-1 rounded-xl bg-safe-soft px-3 py-2 text-xs text-safe">💬 {s.clinic_note}</p>
+                  )}
                 </li>
               ))}
             </ul>

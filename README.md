@@ -126,6 +126,9 @@ Every urgent/emergency health insight carries a **Share with vet** button that o
   active insight ids) and confirms it — share history shows on the report. Copy-summary and
   mailto are secondary paths; browser print/PDF is tertiary. `PRODUCTION NOTE`: v2 connects
   real vet portals; the demo records and confirms without external delivery.
+- **The loop closes**: each share carries a live stage (sent → delivered → viewed →
+  reviewed, advancing with time in the demo) and, once reviewed, a clinic note — so sharing
+  visibly *did something*.
 
 Supporting clarity features: every trend card shows **how today compares to baseline**
 ("on baseline" / "+15% vs baseline", colored by severity), sparklines have hover detail,
@@ -164,6 +167,24 @@ Two demo-specific mechanisms worth knowing:
 - **The system watches the watchers**: signal loss (absence of collar events ≥ 45 min) is
   detected and surfaced as "containment unverified" rather than a false all-clear, and
   a collar battery ≤ 20% scores as *urgent* because the exposure is safety, not maintenance.
+
+## The engagement & business loop
+
+Board-story surfaces, all computed live from the same data the rest of the app renders:
+
+- **Daily briefing** (`GET .../briefing`) — a narrated overnight digest (Claude or the
+  deterministic template) with fact chips: the daily-ritual habit loop.
+- **Peace-of-Mind score** (`GET .../score`) — 0–100, deducted from active insights,
+  containment posture, and equipment readiness, with every deduction named. Ring gauge on
+  the dashboard.
+- **Milestones** (`GET .../milestones`) — walk streaks, breach-free runs, steady hydration,
+  computed from telemetry, never stored.
+- **Proactive replenishment** (`POST /v1/orders`) — equipment insights whose fix is a
+  consumable (fountain filter, collar battery) carry a one-tap order button with price and
+  ETA: the consumables revenue flywheel.
+- **Your dealer** (`GET .../dealer`) — the household's Invisible Fence dealer, with a live
+  dispatch timeline (alerted → reviewing → followed up) when an emergency routes to the
+  associate queue: the dealer-network moat, made visible.
 
 ## Deploying to Vercel
 

@@ -28,7 +28,9 @@ import it into Postman, Insomnia, or a code generator). With the API running,
 | Containment & Safety | Live boundary geometry, per-pet zone status, collar health, boundary timeline, movement heat map, day-by-day movement history |
 | Realtime | SSE stream of new insights |
 | AI Agent | Grounded, guardrailed companion Q&A (`mode: claude \| template`) |
-| Vet Report | Live shareable veterinary report + digital share records |
+| Vet Report | Live shareable veterinary report + digital share records with delivery/review stages |
+| Engagement | Daily briefing, Peace-of-Mind score, milestones, dealer dispatch status |
+| Commerce | One-tap consumable replenishment orders from equipment insights |
 | Demo Tier | Seed, reset, and nine live scenario triggers |
 
 ## The core loop, in curl
@@ -76,6 +78,16 @@ curl -H "$AUTH" localhost:3001/v1/households/hh_2291/containment
 #     day review (one calendar day's GPS path + stats per dog)
 curl -H "$AUTH" 'localhost:3001/v1/households/hh_2291/containment/heatmap?days=7'
 curl -H "$AUTH" 'localhost:3001/v1/households/hh_2291/containment/history?date=2026-07-28'
+
+# 6c. Engagement: briefing, score, milestones, dealer
+curl -H "$AUTH" localhost:3001/v1/households/hh_2291/briefing
+curl -H "$AUTH" localhost:3001/v1/households/hh_2291/score
+curl -H "$AUTH" localhost:3001/v1/households/hh_2291/milestones
+curl -H "$AUTH" localhost:3001/v1/households/hh_2291/dealer
+
+# 6d. Replenishment: order the consumable that fits a device
+curl -X POST -H "$AUTH" -H 'Content-Type: application/json' \
+  localhost:3001/v1/orders -d '{"device_id":"dev_fountain_9002","sku":"filt-std-4pk"}'
 
 # 7. Vet report: assemble, then record a digital share
 curl -H "$AUTH" localhost:3001/v1/pets/pet_5001/vet-report

@@ -2,10 +2,18 @@ import { Link } from 'react-router-dom';
 import type { Insight } from '@connected-care/shared';
 import { api } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
+import { OrderButton } from './OrderButton';
 import { UrgencyBadge } from './UrgencyBadge';
 
+/** Equipment insights whose fix is a consumable you can just order. */
+const REPLENISHABLE_METRICS = new Set(['fountain_flow_rate', 'collar_battery_pct']);
+
 export function InsightCard({ insight, petName }: { insight: Insight; petName?: string }) {
-  const { updateInsight } = useHousehold();
+  const { household, updateInsight } = useHousehold();
+  const orderDevice =
+    insight.device_id && REPLENISHABLE_METRICS.has(insight.metric)
+      ? household?.devices.find((d) => d.id === insight.device_id)
+      : undefined;
 
   const act = async (action: 'acknowledge' | 'dismiss') => {
     const updated = action === 'acknowledge' ? await api.acknowledgeInsight(insight.id) : await api.dismissInsight(insight.id);
@@ -55,6 +63,7 @@ export function InsightCard({ insight, petName }: { insight: Insight; petName?: 
               📤 Share with vet
             </Link>
           )}
+        {orderDevice && !resolved && <OrderButton deviceId={orderDevice.id} deviceType={orderDevice.device_type} />}
         {!resolved && (
           <span className="ml-auto flex gap-2">
             <button

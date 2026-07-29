@@ -3,6 +3,8 @@ import {
   SIGNAL_STALE_MIN,
   type ContainmentPetStatus,
   type DayHistoryResponse,
+  type DealerStatus,
+  type DispatchStep,
   type HeatmapResponse,
 } from '@connected-care/shared';
 import { api } from '../api/client';
@@ -341,6 +343,68 @@ function DayView({ boundary, pets }: { boundary: ContainmentStatusBoundary; pets
   );
 }
 
+/* ------------------------------- dealer card ------------------------------ */
+
+const DISPATCH_STEPS: { key: DispatchStep; label: string }[] = [
+  { key: 'alerted', label: 'Dealer alerted' },
+  { key: 'reviewing', label: 'Associate reviewing' },
+  { key: 'followed_up', label: 'Followed up by phone' },
+];
+
+/** The dealer-network moat, made visible: who serves this yard, and live
+ * dispatch state whenever an emergency has been routed to the associate. */
+function DealerCard({ refreshKey }: { refreshKey: number }) {
+  const [status, setStatus] = useState<DealerStatus | null>(null);
+
+  useEffect(() => {
+    void api.getDealer().then(setStatus).catch(() => setStatus(null));
+  }, [refreshKey]);
+
+  if (!status?.dealer) return null;
+  const stepIdx = status.dispatch ? DISPATCH_STEPS.findIndex((s) => s.key === status.dispatch!.step) : -1;
+
+  return (
+    <section className="rounded-2xl bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-navy text-2xl" aria-hidden>
+          🛠️
+        </span>
+        <div>
+          <h2 className="font-extrabold">{status.dealer.name}</h2>
+          <p className="text-xs text-gray-500">
+            Your dealer · {status.dealer.associate} — knows your fence, your yard, and your dogs
+          </p>
+        </div>
+        <a
+          href={`tel:${status.dealer.phone.replace(/[^+\d]/g, '')}`}
+          className="ml-auto rounded-full bg-navy px-4 py-2 text-sm font-extrabold text-white hover:opacity-85"
+        >
+          📞 {status.dealer.phone}
+        </a>
+      </div>
+      {status.dispatch && (
+        <div className="mt-4 rounded-xl bg-tier-emergency-soft p-3">
+          <p className="text-xs font-bold text-tier-emergency">🚚 {status.dispatch.summary}</p>
+          <ol className="mt-2 flex flex-wrap items-center gap-2">
+            {DISPATCH_STEPS.map((s, i) => (
+              <li key={s.key} className="flex items-center gap-2 text-xs font-bold">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
+                    i <= stepIdx ? 'bg-navy text-white' : 'bg-card text-gray-400'
+                  }`}
+                >
+                  {i < stepIdx ? '✓' : i === stepIdx ? '●' : '○'} {s.label}
+                </span>
+                {i < DISPATCH_STEPS.length - 1 && <span className="text-gray-300">→</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* --------------------------------- page ---------------------------------- */
 
 export function SafetyCenter() {
@@ -419,6 +483,8 @@ export function SafetyCenter() {
           <ContainmentCard key={pet.pet_id} pet={pet} />
         ))}
       </section>
+
+      <DealerCard refreshKey={insights.length} />
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Boundary activity</h2>

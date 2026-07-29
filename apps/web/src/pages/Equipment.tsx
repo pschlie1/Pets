@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type DeviceStatus } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
 import { InsightCard } from '../components/InsightCard';
+import { OrderButton } from '../components/OrderButton';
 
 const ICONS: Record<string, string> = { containment_collar: '📡', feeder: '🍽️', fountain: '⛲' };
 
@@ -63,6 +64,11 @@ export function Equipment() {
                   </dd>
                 </div>
               </dl>
+              {(d.status !== 'active' || (battery !== undefined && battery <= 20)) && (
+                <div className="mt-3">
+                  <OrderButton deviceId={d.id} deviceType={d.device_type} />
+                </div>
+              )}
             </div>
           );
         })}

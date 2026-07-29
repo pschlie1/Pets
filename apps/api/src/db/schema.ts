@@ -170,6 +170,22 @@ CREATE TABLE IF NOT EXISTS vet_shares (
 
 CREATE INDEX IF NOT EXISTS idx_vet_shares_pet ON vet_shares(pet_id, shared_at DESC);
 
+-- Consumable replacement orders placed from equipment insights (demo commerce:
+-- an order is recorded and confirmed, never fulfilled).
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL REFERENCES households(id),
+    device_id TEXT NOT NULL REFERENCES devices(id),
+    sku TEXT NOT NULL,
+    label TEXT NOT NULL,
+    price_cents INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'placed' CHECK (status IN ('placed')),
+    eta_date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_household ON orders(household_id, created_at DESC);
+
 -- Shared by location, not tenant-scoped.
 CREATE TABLE IF NOT EXISTS environmental_context (
     id TEXT PRIMARY KEY,

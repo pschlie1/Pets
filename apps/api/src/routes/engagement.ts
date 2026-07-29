@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { DEALERS, type DealerStatus, type DispatchStep } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { getMilestones } from '../engine/milestones';
 import { getPeaceOfMindScore } from '../engine/score';
@@ -39,6 +40,36 @@ export function engagementRoutes(db: Db): Router {
   r.get('/households/:id/milestones', (req, res) => {
     requireHousehold(req);
     res.json({ data: getMilestones(db, req.params.id) });
+  });
+
+  // The dealer-network moat: who serves this household, plus live dispatch
+  // state when an emergency insight has been routed to the associate queue.
+  // The dispatch steps advance deterministically with elapsed time — the demo
+  // stand-in for the dealer CRM's real status feed.
+  r.get('/households/:id/dealer', (req, res) => {
+    requireHousehold(req);
+    const routed = db
+      .prepare(
+        `SELECT id, summary, generated_at FROM insights
+         WHERE household_id = ? AND routed_to_associate = 1
+           AND acknowledged_status IN ('unseen', 'seen')
+         ORDER BY generated_at DESC LIMIT 1`,
+      )
+      .get(req.params.id) as { id: string; summary: string; generated_at: string } | undefined;
+
+    let dispatch: DealerStatus['dispatch'] = null;
+    if (routed) {
+      const minutes = (Date.now() - Date.parse(routed.generated_at)) / 60_000;
+      const step: DispatchStep = minutes < 2 ? 'alerted' : minutes < 10 ? 'reviewing' : 'followed_up';
+      dispatch = { insight_id: routed.id, summary: routed.summary, routed_at: routed.generated_at, step };
+    }
+
+    const status: DealerStatus = {
+      household_id: req.params.id,
+      dealer: DEALERS[req.params.id] ?? null,
+      dispatch,
+    };
+    res.json({ data: status });
   });
 
   return r;

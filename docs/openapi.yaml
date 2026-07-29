@@ -63,6 +63,10 @@ tags:
     description: The Claude-powered companion agent (grounded, guardrailed).
   - name: Vet Report
     description: Shareable veterinary report and the digital share record.
+  - name: Engagement
+    description: The retention loop — daily briefing, Peace-of-Mind score, milestones, dealer status.
+  - name: Commerce
+    description: Proactive consumable replenishment from equipment insights.
   - name: Demo Tier
     description: Seed, reset, and live scenario triggers. Demo environments only.
 
@@ -699,6 +703,151 @@ paths:
 
                 event: insight
                 data: {"id":"...","urgency":"urgent","summary":"..."}
+
+  /v1/households/{householdId}/briefing:
+    get:
+      tags: [Engagement]
+      summary: Daily briefing — narrated overnight digest
+      description: >-
+        Facts (per-pet sleep/walks, fence activity, equipment posture, worst
+        active alert) computed live; narration by Claude when available,
+        deterministic template from the same facts otherwise (`mode` says which).
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: The briefing.
+          content:
+            application/json:
+              example:
+                data:
+                  greeting_period: morning
+                  summary: The whole crew had a good night — fence quiet, everyone on baseline. 💚
+                  facts: [{ icon: '🐾', text: 'Baxter: slept 10.2h, walked 27 min yesterday' }]
+                  mode: template
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/score:
+    get:
+      tags: [Engagement]
+      summary: Peace-of-Mind score (0–100) with named factors
+      description: >-
+        Deducted live from active insights, containment posture, and equipment
+        readiness — always explainable via `factors`. Bands: ≥90 protected,
+        ≥70 good, ≥40 needs_attention, else act_now.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: The score.
+          content:
+            application/json:
+              example:
+                data:
+                  score: 92
+                  band: protected
+                  factors: [{ label: '💚 Every device is online and every trend is on baseline', delta: 0 }]
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/milestones:
+    get:
+      tags: [Engagement]
+      summary: Wins worth celebrating, computed from the telemetry record
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Up to four current wins (walk streaks, breach-free runs, steady hydration).
+          content:
+            application/json:
+              example:
+                data:
+                  - { icon: '🛡️', title: '21+ days breach-free', detail: 'Nobody has crossed the boundary', pet_id: null }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/dealer:
+    get:
+      tags: [Engagement]
+      summary: The household's dealer, with live dispatch state
+      description: >-
+        Who serves this yard, plus a dispatch timeline (alerted → reviewing →
+        followed_up) whenever an emergency insight has been routed to the
+        associate queue. Demo note: steps advance deterministically with
+        elapsed time — the stand-in for the dealer CRM's status feed.
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Dealer status (`dealer` null when none serves the household).
+          content:
+            application/json:
+              example:
+                data:
+                  dealer: { name: Invisible Fence Brand — Chicago North, associate: Dana M., phone: (312) 555-0148 }
+                  dispatch: { step: alerted, summary: 'Wrigley crossed the boundary…', routed_at: '2026-07-29T14:02:11Z' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/orders:
+    post:
+      tags: [Commerce]
+      summary: Place a consumable replacement order
+      description: >-
+        One-tap replenishment from an equipment insight. The sku must match the
+        device's consumable (fountain filter, collar battery). Demo note: the
+        order is recorded and confirmed with an ETA, never fulfilled;
+        production hands off to the commerce platform.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_id, sku]
+              properties:
+                device_id: { type: string }
+                sku: { type: string }
+            example: { device_id: dev_fountain_9002, sku: filt-std-4pk }
+      responses:
+        '201':
+          description: Order placed.
+          content:
+            application/json:
+              example:
+                data: { id: ord_1, sku: filt-std-4pk, label: Fountain filter 4-pack, price_cents: 1299, status: placed, eta_date: '2026-08-01' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/orders:
+    get:
+      tags: [Commerce]
+      summary: List the household's orders (newest first)
+      parameters: [{ $ref: '#/components/parameters/householdId' }]
+      responses:
+        '200':
+          description: Orders.
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/pets/{petId}/vet-report/shares:
+    get:
+      tags: [Vet Report]
+      summary: Share history with delivery/review stages
+      description: >-
+        Each share carries a stage — sent → delivered → viewed → reviewed —
+        and, once reviewed, a clinic note. Demo note: stages advance
+        deterministically with elapsed time since the share; production reads
+        the vet portal's receipts and replies.
+      parameters: [{ $ref: '#/components/parameters/petId' }]
+      responses:
+        '200':
+          description: Shares, newest first.
+          content:
+            application/json:
+              example:
+                data:
+                  - { id: shr_1, recipient: Lincoln Park Veterinary Clinic, method: portal, stage: reviewed, clinic_note: 'Trend noted — bring Baxter in if it persists this week. — Dr. Chen' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/agent/query:
     post:

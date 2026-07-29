@@ -1,7 +1,14 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import type { Briefing, Milestone, PeaceOfMindScore } from '@connected-care/shared';
+import type {
+  Briefing,
+  DealerStatus,
+  Milestone,
+  Order,
+  PeaceOfMindScore,
+  VetShareWithStatus,
+} from '@connected-care/shared';
 import { buildApp } from '../app';
 import { getDb, type Db } from '../db/connection';
 import { REF, seedAll } from '../db/seed';
@@ -78,11 +85,86 @@ describe('milestones', () => {
   });
 });
 
+describe('replenishment orders', () => {
+  it('places a matching consumable order with an ETA, then lists it', async () => {
+    const res = await request(app)
+      .post('/v1/orders')
+      .set(...AUTH)
+      .send({ device_id: REF.fountain, sku: 'filt-std-4pk' });
+    expect(res.status).toBe(201);
+    const order = res.body.data as Order;
+    expect(order.label).toMatch(/filter/i);
+    expect(order.price_cents).toBe(1299);
+    expect(order.eta_date > new Date().toISOString().slice(0, 10)).toBe(true);
+
+    const list = await get<Order[]>(`/v1/households/${REF.householdId}/orders`);
+    expect(list.data.some((o) => o.id === order.id)).toBe(true);
+  });
+
+  it('rejects a sku that does not fit the device', async () => {
+    const res = await request(app)
+      .post('/v1/orders')
+      .set(...AUTH)
+      .send({ device_id: REF.fountain, sku: 'batt-rfa-67' });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects orders against another household's device", async () => {
+    const res = await request(app)
+      .post('/v1/orders')
+      .set(...SAM)
+      .send({ device_id: REF.fountain, sku: 'filt-std-4pk' });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('dealer', () => {
+  it('returns the household dealer with no dispatch when calm', async () => {
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+    const { data } = await get<DealerStatus>(`/v1/households/${REF.householdId}/dealer`);
+    expect(data.dealer?.name).toMatch(/Invisible Fence/);
+    expect(data.dispatch).toBeNull();
+  });
+
+  it('shows live dispatch after an emergency routes to the associate', async () => {
+    await request(app)
+      .post(`/v1/demo/households/${REF.householdId}/scenarios/emergency_boundary_breach`)
+      .set(...AUTH);
+    const { data } = await get<DealerStatus>(`/v1/households/${REF.householdId}/dealer`);
+    expect(data.dispatch).not.toBeNull();
+    expect(data.dispatch!.step).toBe('alerted'); // just routed
+    await request(app).post(`/v1/demo/households/${REF.householdId}/reset`).set(...AUTH);
+  });
+});
+
+describe('vet share stages', () => {
+  it('a fresh share starts at sent; an old one is reviewed with a clinic note', async () => {
+    await request(app)
+      .post(`/v1/pets/${REF.baxter}/vet-report/share`)
+      .set(...AUTH)
+      .send({ recipient: 'Lincoln Park Veterinary Clinic', method: 'portal' });
+    // Backdate a second share so the reviewed stage is exercised.
+    db.prepare(
+      `INSERT INTO vet_shares (id, household_id, pet_id, recipient, method, insight_ids, shared_at) VALUES (?, ?, ?, ?, 'portal', '[]', ?)`,
+    ).run('share_old', REF.householdId, REF.baxter, 'Lincoln Park Veterinary Clinic', new Date(Date.now() - 20 * 60_000).toISOString());
+
+    const { data } = await get<VetShareWithStatus[]>(`/v1/pets/${REF.baxter}/vet-report/shares`);
+    const fresh = data.find((s) => s.id !== 'share_old')!;
+    const old = data.find((s) => s.id === 'share_old')!;
+    expect(fresh.stage).toBe('sent');
+    expect(fresh.clinic_note).toBeNull();
+    expect(old.stage).toBe('reviewed');
+    expect(old.clinic_note).toMatch(/Baxter/);
+  });
+});
+
 describe('tenancy', () => {
   it("rejects another household's engagement surfaces", async () => {
-    for (const path of ['briefing', 'score', 'milestones']) {
+    for (const path of ['briefing', 'score', 'milestones', 'dealer', 'orders']) {
       const res = await request(app).get(`/v1/households/${REF.householdId}/${path}`).set(...SAM);
       expect(res.status).toBe(403);
     }
+    const shares = await request(app).get(`/v1/pets/${REF.baxter}/vet-report/shares`).set(...SAM);
+    expect(shares.status).toBe(403);
   });
 });

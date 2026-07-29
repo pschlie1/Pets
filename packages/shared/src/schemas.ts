@@ -49,3 +49,8 @@ export const vetShareSchema = z.object({
   recipient: z.string().min(1).max(200),
   method: z.enum(['portal', 'email', 'link']),
 });
+
+export const orderSchema = z.object({
+  device_id: z.string().min(1),
+  sku: z.string().min(1),
+});

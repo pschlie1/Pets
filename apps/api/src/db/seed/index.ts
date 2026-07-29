@@ -182,6 +182,7 @@ export function resetAll(db: Db, now: number = Date.now()): void {
   db.transaction(() => {
     for (const table of [
       'owners', // references households; must go before it (no CASCADE)
+      'orders', // references devices + households; must go before both (no CASCADE)
       'vet_shares', // references pets + households; must go before both (no CASCADE)
       'insights',
       'telemetry_events',
