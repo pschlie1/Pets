@@ -1,3 +1,9 @@
+/**
+ * Connected Care SQLite schema — the data tier's single source of truth.
+ * Inlined as a constant so the API needs no runtime filesystem read (which
+ * keeps serverless bundles self-contained).
+ */
+export const SCHEMA_SQL = `
 -- Connected Care — SQLite schema (demo data tier)
 -- Adapted from the production Postgres DDL (schema-connectedcare.sql).
 --
@@ -162,3 +168,4 @@ CREATE TABLE IF NOT EXISTS environmental_context (
     conditions TEXT,
     UNIQUE (location_zip, date)
 );
+`;

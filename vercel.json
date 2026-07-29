@@ -1,12 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "apps/web/dist",
   "functions": {
-    "api/index.ts": {
+    "api/index.js": {
       "maxDuration": 300,
-      "includeFiles": "{docs/openapi.yaml,apps/api/src/db/schema.sql,node_modules/swagger-ui-dist/*}"
+      "includeFiles": "{docs/openapi.yaml,node_modules/swagger-ui-dist/*}"
     }
   },
   "rewrites": [

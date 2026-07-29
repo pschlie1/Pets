@@ -26,7 +26,7 @@ Built against the Connected Care PRD v1.0 and API architecture note. The demo ru
                                │  better-sqlite3
 ┌──────────────────────────────┴──────────────────────────────────────┐
 │  DATA TIER  ·  SQLite (schema adapted from the production           │
-│  Postgres DDL — see PRODUCTION NOTE comments in schema.sql)         │
+│  Postgres DDL — see PRODUCTION NOTE comments in schema.ts)           │
 │  households · pets · devices · device_pet_links · breed_profiles    │
 │  pet_baselines · telemetry_events · insights · environmental_context│
 └─────────────────────────────────────────────────────────────────────┘
@@ -176,7 +176,7 @@ rewrites in `vercel.json`.
 - The SQLite database lives in the function's `/tmp` and seeds on cold start. Each
   serverless instance has its own copy — state diverges across instances and resets on
   recycle. Fine for a single-presenter demo; a persistent deployment would point the data
-  tier at hosted Postgres (the schema in `apps/api/src/db/schema.sql` was adapted *from*
+  tier at hosted Postgres (the schema in `apps/api/src/db/schema.ts` was adapted *from*
   a Postgres DDL, so the road back is short) or run the server on a long-lived host.
 - SSE streams are bounded by the function's `maxDuration` (300s); the UI's `EventSource`
   reconnects automatically when a stream recycles.
@@ -185,7 +185,7 @@ rewrites in `vercel.json`.
 
 - **SQLite instead of Postgres** — the production DDL (enums, RLS tenant isolation, monthly
   partitioning of `telemetry_events`, JSONB) is preserved in spirit; every adaptation carries
-  a `PRODUCTION NOTE` comment in `apps/api/src/db/schema.sql`.
+  a `PRODUCTION NOTE` comment in `apps/api/src/db/schema.ts`.
 - **Synchronous scoring after ingestion** — production consumes the event stream asynchronously
   so scoring can never block a device from posting data.
 - **Demo-tier agent context assembly** — the server assembles pet profile + baselines + breed
@@ -202,7 +202,7 @@ rewrites in `vercel.json`.
 | Path | What lives there |
 |---|---|
 | `packages/shared/src/` | Cross-tier types, zod schemas, urgency tiers, scenario metadata |
-| `apps/api/src/db/` | `schema.sql`, connection, seeded telemetry generators |
+| `apps/api/src/db/` | `schema.ts` (inlined DDL), connection, seeded telemetry generators |
 | `apps/api/src/engine/` | Scoring (pure), baselines, aggregates, pipeline, dedupe |
 | `apps/api/src/agents/` | Claude client, context assembly, narrator, companion, template fallback |
 | `apps/api/src/routes/` | One Express router per API domain |

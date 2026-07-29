@@ -3,26 +3,33 @@ import express from 'express';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 /**
  * Interactive API documentation at /docs, rendered by a vendored Swagger UI
- * (swagger-ui-dist) — fully offline, no CDN, matching the demo's rule that
- * nothing breaks without a network. The canonical spec lives at
+ * (swagger-ui-dist) — fully offline, no CDN. The canonical spec lives at
  * <repo root>/docs/openapi.yaml.
+ *
+ * Deliberately avoids import.meta so this module survives being bundled to
+ * CommonJS for serverless deployment: everything resolves from process.cwd(),
+ * which is the repo root in dev (root scripts), apps/api under `npm run dev`,
+ * and the function root when deployed.
  */
 
-const here = dirname(fileURLToPath(import.meta.url));
-// Module-relative (src/routes → repo root) in dev; cwd-relative fallback for
-// traced serverless bundles.
 const specCandidates = [
-  join(here, '..', '..', '..', '..', 'docs', 'openapi.yaml'),
   join(process.cwd(), 'docs', 'openapi.yaml'),
+  join(process.cwd(), '..', '..', 'docs', 'openapi.yaml'),
 ];
 const specPath = specCandidates.find(existsSync) ?? specCandidates[0];
 
-const require = createRequire(import.meta.url);
-const swaggerDist = dirname(require.resolve('swagger-ui-dist/package.json'));
+function resolveSwaggerDist(): string | null {
+  try {
+    const req = createRequire(join(process.cwd(), 'package.json'));
+    return dirname(req.resolve('swagger-ui-dist/package.json'));
+  } catch {
+    return null;
+  }
+}
+const swaggerDist = resolveSwaggerDist();
 
 const PAGE = `<!doctype html>
 <html lang="en">
@@ -68,7 +75,9 @@ export function docsRoutes(): Router {
     res.type('text/yaml').sendFile(specPath);
   });
 
-  r.use('/docs/assets', express.static(swaggerDist));
+  if (swaggerDist) {
+    r.use('/docs/assets', express.static(swaggerDist));
+  }
 
   return r;
 }
