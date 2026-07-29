@@ -19,9 +19,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const body = (await res.json()) as { data: T } | ApiErrorBody;
-  if (!res.ok || 'error' in body) {
-    const message = 'error' in body ? body.error.message : `Request failed (${res.status})`;
+  // A crashed backend can return a non-JSON body; surface the status instead
+  // of the browser's cryptic JSON parse error.
+  let body: { data: T } | ApiErrorBody | null = null;
+  try {
+    body = (await res.json()) as { data: T } | ApiErrorBody;
+  } catch {
+    body = null;
+  }
+  if (!res.ok || !body || 'error' in body) {
+    const message =
+      body && 'error' in body ? body.error.message : `The service returned ${res.status} — please try again.`;
     throw new Error(message);
   }
   return body.data;
@@ -95,8 +103,8 @@ export const api = {
     const res = await fetch(`/v1/households/${HOUSEHOLD_ID}/insights?${q}`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
     });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body?.error?.message ?? 'Failed to load insights');
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) throw new Error(body?.error?.message ?? `Failed to load insights (${res.status})`);
     return { items: body.data as Insight[], pagination: body.pagination } as InsightPage;
   },
   acknowledgeInsight: (id: string) => request<Insight>(`/v1/insights/${id}/acknowledge`, { method: 'POST' }),
