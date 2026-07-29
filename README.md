@@ -190,11 +190,18 @@ rewrites in `vercel.json`.
   so scoring can never block a device from posting data.
 - **Demo-tier agent context assembly** — the server assembles pet profile + baselines + breed
   profile + insights into the prompt; production replaces this with agent tool-calling.
-- **Bearer-token stub** (any token; the frontend sends `demo-token`) — production validates a
-  real JWT carrying the tenant claim.
+- **Real tenant auth, demo identity provider** — `POST /v1/auth/login` exchanges a known
+  owner email for a signed HS256 JWT (dependency-free, `node:crypto`) whose claims bind the
+  session to one household; `requireAuth` verifies signature + expiry, and every tenant-scoped
+  route asserts the resource's household against the claim (`403 forbidden` otherwise). The
+  web app holds nothing tenant-specific — it logs in, then derives every URL from the claim.
+  Two seeded identities (`peter@` / `sam@connectedcare.demo`) let the demo prove isolation
+  live. Production swaps the login route for a real IdP (OIDC) and adds DB row-level
+  security as a second layer — the claim contract and per-route enforcement stay as-is.
+  Set `AUTH_SECRET` in production; a dev default (with console warning) applies when unset.
 - **SSE for the stream endpoint** — push is strictly server→client, so SSE beats WebSockets on
-  simplicity here; the endpoint is unauthenticated in the demo because `EventSource` cannot set
-  headers (production would use a cookie or signed URL).
+  simplicity here; `EventSource` cannot set headers, so the signed token travels as a
+  `?token=` query parameter and the server streams only the token's own household.
 - Model: `claude-sonnet-4-6` per the PRD, overridable via `CLAUDE_MODEL` in `.env`.
 
 ## Repo map
@@ -206,7 +213,7 @@ rewrites in `vercel.json`.
 | `apps/api/src/engine/` | Scoring (pure), baselines, aggregates, pipeline, dedupe |
 | `apps/api/src/agents/` | Claude client, context assembly, narrator, companion, template fallback |
 | `apps/api/src/routes/` | One Express router per API domain |
-| `apps/api/src/demo/` | The six scenario injectors |
+| `apps/api/src/demo/` | The nine scenario injectors |
 | `apps/api/src/__tests__/`, `engine/__tests__/` | Vitest suites (scoring + full-stack integration) |
 | `apps/web/src/pages/` | Dashboard, PetDetail, Insights, Chat, Equipment, DemoPanel |
 | `apps/web/src/theme.css` | The entire PetSafe brand in one Tailwind `@theme` block |

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ContainmentStatus, Insight } from '@connected-care/shared';
-import { api, HOUSEHOLD_ID, type HouseholdDetail } from '../api/client';
+import { api, getSession, type HouseholdDetail } from '../api/client';
+import { useAuth } from './AuthContext';
 
 interface HouseholdState {
   household: HouseholdDetail | null;
@@ -16,6 +17,7 @@ interface HouseholdState {
 const Ctx = createContext<HouseholdState | null>(null);
 
 export function HouseholdProvider({ children }: { children: ReactNode }) {
+  const { owner } = useAuth();
   const [household, setHousehold] = useState<HouseholdDetail | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [containment, setContainment] = useState<ContainmentStatus | null>(null);
@@ -52,9 +54,17 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!owner) return;
+    // A fresh session (boot or account switch): clear and refetch everything.
+    setHousehold(null);
+    setInsights([]);
+    setContainment(null);
     void refresh();
-    // Live insight push: SSE with native reconnect.
-    const es = new EventSource(`/v1/households/${HOUSEHOLD_ID}/stream`);
+    // Live insight push: SSE with native reconnect. EventSource cannot set
+    // headers, so the session token travels as a query parameter and the
+    // server streams only the token's own household.
+    const { token } = getSession();
+    const es = new EventSource(`/v1/households/${owner.household_id}/stream?token=${encodeURIComponent(token)}`);
     esRef.current = es;
     es.addEventListener('insight', (e) => {
       const insight = JSON.parse((e as MessageEvent).data) as Insight;
@@ -65,7 +75,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
       void refreshContainment();
     });
     return () => es.close();
-  }, [refresh, refreshContainment, updateInsight]);
+  }, [owner, refresh, refreshContainment, updateInsight]);
 
   return (
     <Ctx.Provider

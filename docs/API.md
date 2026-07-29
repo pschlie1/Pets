@@ -9,7 +9,8 @@ import it into Postman, Insomnia, or a code generator). With the API running,
 | | |
 |---|---|
 | Base URL | `http://localhost:3001` |
-| Auth | `Authorization: Bearer demo-token` on every `/v1` endpoint (exceptions: `/v1/health`, the SSE stream, `/docs`) |
+| Auth | Sign in via `POST /v1/auth/login` → signed token (HS256 JWT, 12 h) bound to your household → `Authorization: Bearer <token>` on every `/v1` endpoint (exceptions: `/v1/health`, `/v1/auth/login`, `/v1/auth/demo-identities`, `/docs`) |
+| Tenancy | Enforced per route: a resource outside your token's household claim → `403 forbidden` |
 | Success envelope | `{ "data": ... }` (paginated lists add `"pagination"`) |
 | Error envelope | `{ "error": { "code", "message", "details?" } }` — validation failures list per-field `details` |
 | Timestamps | ISO-8601 UTC |
@@ -18,6 +19,7 @@ import it into Postman, Insomnia, or a code generator). With the API running,
 
 | Domain | What it owns |
 |---|---|
+| Auth | Demo sign-in issuing signed tenant tokens (production: a real IdP, same claim contract) |
 | Identity & Household | Households (the tenant boundary), pets, device links |
 | Device Telemetry | One ingestion envelope for every device type; unknown event types stored + flagged, never rejected |
 | Breed Reference | Shared breed profiles + species-generic fallbacks (not tenant-scoped) |
@@ -32,9 +34,16 @@ import it into Postman, Insomnia, or a code generator). With the API running,
 ## The core loop, in curl
 
 ```bash
-AUTH='Authorization: Bearer demo-token'
+# 0. Sign in — the token binds every later call to your household
+TOKEN=$(curl -s -X POST -H 'Content-Type: application/json' \
+  localhost:3001/v1/auth/login -d '{"email":"peter@connectedcare.demo"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["token"])')
+AUTH="Authorization: Bearer $TOKEN"
 
-# 0. Seed the reference household (idempotent; happens automatically on first boot)
+# Who am I? (client bootstrap)
+curl -H "$AUTH" localhost:3001/v1/auth/me
+
+# Seed the reference household (idempotent; happens automatically on first boot)
 curl -X POST -H "$AUTH" localhost:3001/v1/demo/households
 
 # 1. Ingest a telemetry event — any device type, one envelope.
@@ -80,12 +89,13 @@ curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/reset
 ## Realtime: the SSE stream
 
 New insights push over Server-Sent Events — `event: insight` frames with the full
-Insight JSON, plus `: ping` heartbeats every 15 s. Unauthenticated in the demo
-(browser `EventSource` cannot set headers; production uses a cookie or signed URL).
+Insight JSON, plus `: ping` heartbeats every 15 s. Browser `EventSource` cannot
+set headers, so the session token travels as a `?token=` query parameter; the
+server verifies it and streams **only the token's own household**.
 
 ```bash
-# Terminal 1: watch the stream
-curl -N localhost:3001/v1/households/hh_2291/stream
+# Terminal 1: watch the stream (token in the query string)
+curl -N "localhost:3001/v1/households/hh_2291/stream?token=$TOKEN"
 
 # Terminal 2: trigger a scenario and watch the frame arrive
 curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/scenarios/emergency_boundary_breach
@@ -93,7 +103,7 @@ curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/scenarios/emer
 
 ```js
 // Browser
-const es = new EventSource('/v1/households/hh_2291/stream');
+const es = new EventSource(`/v1/households/${me.household_id}/stream?token=${token}`);
 es.addEventListener('insight', (e) => {
   const insight = JSON.parse(e.data);
   console.log(insight.urgency, insight.summary);
@@ -115,8 +125,13 @@ es.addEventListener('insight', (e) => {
 
 ## Demo-tier notes a developer should know
 
-- **Auth is a stub** — any non-empty bearer token passes. Production validates a
-  JWT carrying the household (tenant) claim; row-level isolation follows it.
+- **Auth is real** — `POST /v1/auth/login` issues a signed HS256 JWT bound to
+  the owner's household, and every tenant-scoped route rejects out-of-claim
+  resources with `403 forbidden`. Two demo identities exist to prove isolation:
+  `peter@connectedcare.demo` (hh_2291) and `sam@connectedcare.demo` (hh_3350).
+  Production swaps the login route for a real IdP; the claim contract and
+  enforcement are unchanged. Sign the token with `AUTH_SECRET` (a dev default
+  is used, with a console warning, when unset).
 - **Scoring is synchronous** on ingestion so demo feedback is instant; production
   consumes the event stream asynchronously so scoring can never block a device.
 - **The containment endpoint writes on read** ("lazy top-up" of collar

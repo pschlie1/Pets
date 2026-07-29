@@ -30,6 +30,15 @@ export function authRoutes(db: Db): Router {
     res.status(201).json({ data: { token, owner } });
   });
 
+  // Demo-tier only: lists the seeded identities so the demo account switcher
+  // is API-fed rather than hardcoded. A real deployment has no such endpoint.
+  r.get('/auth/demo-identities', (_req, res) => {
+    const identities = db
+      .prepare(`SELECT id, email, display_name, household_id FROM owners ORDER BY email`)
+      .all();
+    res.json({ data: identities });
+  });
+
   r.get('/auth/me', (req, res) => {
     const header = req.headers.authorization ?? '';
     const claims = header.startsWith('Bearer ') ? verifyToken(header.slice(7)) : null;

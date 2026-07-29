@@ -3,18 +3,34 @@ import type {
   ApiErrorBody,
   ContainmentStatus,
   Insight,
+  LoginResponse,
+  Owner,
   ScenarioMeta,
   VetReport,
   VetShare,
 } from '@connected-care/shared';
 
-const TOKEN = 'demo-token';
+/**
+ * Session state, set by AuthContext after login. Nothing tenant-specific is
+ * hardcoded — the household id comes from the authenticated owner's claim.
+ */
+let sessionToken = '';
+let sessionHouseholdId = '';
+
+export function setSession(token: string, householdId: string): void {
+  sessionToken = token;
+  sessionHouseholdId = householdId;
+}
+
+export function getSession(): { token: string; householdId: string } {
+  return { token: sessionToken, householdId: sessionHouseholdId };
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${sessionToken}`,
       'Content-Type': 'application/json',
       ...init?.headers,
     },
@@ -85,11 +101,12 @@ export interface InsightPage {
   pagination: { page: number; limit: number; total: number; total_pages: number };
 }
 
-export const HOUSEHOLD_ID = 'hh_2291';
-
 export const api = {
-  getHousehold: () => request<HouseholdDetail>(`/v1/households/${HOUSEHOLD_ID}`),
-  getContainment: () => request<ContainmentStatus>(`/v1/households/${HOUSEHOLD_ID}/containment`),
+  login: (email: string) =>
+    request<LoginResponse>('/v1/auth/login', { method: 'POST', body: JSON.stringify({ email }) }),
+  getDemoIdentities: () => request<Owner[]>('/v1/auth/demo-identities'),
+  getHousehold: () => request<HouseholdDetail>(`/v1/households/${sessionHouseholdId}`),
+  getContainment: () => request<ContainmentStatus>(`/v1/households/${sessionHouseholdId}/containment`),
   getPet: (petId: string) => request<PetDetailData>(`/v1/pets/${petId}`),
   getPetMetrics: (petId: string, metric: string, days = 14) =>
     request<MetricSeries>(`/v1/pets/${petId}/metrics?metric=${metric}&days=${days}`),
@@ -100,8 +117,8 @@ export const api = {
     if (params.limit) q.set('limit', String(params.limit));
     if (params.pet_id) q.set('pet_id', params.pet_id);
     if (params.urgency) q.set('urgency', params.urgency);
-    const res = await fetch(`/v1/households/${HOUSEHOLD_ID}/insights?${q}`, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
+    const res = await fetch(`/v1/households/${sessionHouseholdId}/insights?${q}`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
     });
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) throw new Error(body?.error?.message ?? `Failed to load insights (${res.status})`);
@@ -117,10 +134,10 @@ export const api = {
   getScenarios: () => request<ScenarioMeta[]>('/v1/demo/scenarios'),
   seedDemo: () => request<{ household_id: string; seeded: boolean }>('/v1/demo/households', { method: 'POST' }),
   resetDemo: () =>
-    request<{ household_id: string; reset: boolean }>(`/v1/demo/households/${HOUSEHOLD_ID}/reset`, { method: 'POST' }),
+    request<{ household_id: string; reset: boolean }>(`/v1/demo/households/${sessionHouseholdId}/reset`, { method: 'POST' }),
   triggerScenario: (key: string) =>
     request<{ scenario: ScenarioMeta; insights: Insight[]; note?: string }>(
-      `/v1/demo/households/${HOUSEHOLD_ID}/scenarios/${key}`,
+      `/v1/demo/households/${sessionHouseholdId}/scenarios/${key}`,
       { method: 'POST' },
     ),
 };

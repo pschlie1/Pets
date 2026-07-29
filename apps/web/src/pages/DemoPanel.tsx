@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { ScenarioMeta } from '@connected-care/shared';
+import type { Owner, ScenarioMeta } from '@connected-care/shared';
 import { api } from '../api/client';
+import { useAuth } from '../state/AuthContext';
 import { useHousehold } from '../state/HouseholdContext';
 import { UrgencyBadge } from '../components/UrgencyBadge';
 
@@ -11,13 +12,16 @@ interface LogEntry {
 }
 
 export function DemoPanel() {
+  const { owner, switchAccount } = useAuth();
   const { refresh } = useHousehold();
   const [scenarios, setScenarios] = useState<ScenarioMeta[]>([]);
+  const [identities, setIdentities] = useState<Owner[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     void api.getScenarios().then(setScenarios);
+    void api.getDemoIdentities().then(setIdentities);
   }, []);
 
   const addLog = (text: string, urgency?: ScenarioMeta['expectedUrgency']) =>
@@ -69,6 +73,40 @@ export function DemoPanel() {
           </button>
         </div>
       </header>
+
+      <section className="rounded-2xl bg-card p-5 shadow-sm">
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">Signed in as</h2>
+        <p className="mt-1 font-extrabold">{owner?.display_name}</p>
+        <p className="text-xs text-gray-500">
+          {owner?.email} · household {owner?.household_id} — every screen renders only this account's data, enforced by
+          the API's tenant claim.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {identities.map((identity) => (
+            <button
+              key={identity.id}
+              disabled={identity.email === owner?.email}
+              onClick={() =>
+                void switchAccount(identity.email).then(() =>
+                  addLog(`Switched to ${identity.display_name} — the whole app now shows a different household 🔐`),
+                )
+              }
+              className={`rounded-full px-4 py-2 text-sm font-extrabold ${
+                identity.email === owner?.email
+                  ? 'bg-safe-soft text-safe'
+                  : 'border border-black/10 bg-card hover:bg-cream'
+              }`}
+            >
+              {identity.email === owner?.email ? '✓ ' : ''}
+              {identity.display_name}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-gray-400">
+          Try it: switch accounts, then trigger a scenario — the other account's request is rejected with a 403,
+          because scenario controls belong to the reference household's owner.
+        </p>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         {scenarios.map((s) => (
