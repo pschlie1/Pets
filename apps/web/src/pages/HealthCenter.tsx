@@ -68,18 +68,27 @@ function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | nu
 
 export function HealthCenter() {
   const { household, insights } = useHousehold();
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   if (!household) return <p className="p-8 text-gray-400">Checking on everyone…</p>;
 
   const healthInsights = insights.filter((i) => i.insight_type === 'pet_health');
   const active = healthInsights.filter(
     (i) => i.acknowledged_status === 'unseen' || i.acknowledged_status === 'seen',
   );
-  // Worst active health urgency per pet drives the section badge.
+  // Worst active health urgency per pet drives the tab dots and section badge.
   const worstFor = (petId: string): Urgency | null =>
     active
       .filter((i) => i.pet_id === petId)
       .reduce<Urgency | null>((w, i) => (w === null || urgencyRank(i.urgency) > urgencyRank(w) ? i.urgency : w), null);
   const petName = (id: string | null) => household.pets.find((p) => p.id === id)?.name;
+
+  // One pet at a time keeps the trend grid scannable; the tab row keeps the
+  // others one tap away, with a dot when they have an active health concern.
+  // Alert-aware default: open on the pet who needs attention most.
+  const defaultPet = [...household.pets].sort(
+    (a, b) => urgencyRank(worstFor(b.id) ?? 'info') - urgencyRank(worstFor(a.id) ?? 'info'),
+  )[0];
+  const pet = household.pets.find((p) => p.id === selectedPetId) ?? defaultPet;
 
   return (
     <div className="space-y-6">
@@ -90,9 +99,29 @@ export function HealthCenter() {
         </p>
       </header>
 
-      {household.pets.map((pet) => (
-        <PetHealthSection key={pet.id} pet={pet} worst={worstFor(pet.id)} />
-      ))}
+      {household.pets.length > 1 && (
+        <div className="flex gap-1 rounded-full bg-card p-1 shadow-sm">
+          {household.pets.map((p) => {
+            const concern = worstFor(p.id);
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPetId(p.id)}
+                className={`flex-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-extrabold transition ${
+                  p.id === pet.id ? 'bg-navy text-white shadow-sm' : 'text-gray-500 hover:bg-black/5'
+                }`}
+              >
+                {p.species === 'dog' ? '🐶' : p.species === 'cat' ? '🐱' : '🐾'} {p.name}
+                {concern && urgencyRank(concern) >= urgencyRank('attention') && (
+                  <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-tier-urgent align-middle" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {pet && <PetHealthSection key={pet.id} pet={pet} worst={worstFor(pet.id)} />}
 
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-gray-400">Health insights</h2>
