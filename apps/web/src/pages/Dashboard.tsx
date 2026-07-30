@@ -175,7 +175,7 @@ export function Dashboard() {
               }`}
             >
               <span className="text-2xl" aria-hidden>
-                {d.device_type === 'containment_collar' ? '📡' : d.device_type === 'feeder' ? '🍽️' : '⛲'}
+                {({ containment_collar: '📡', feeder: '🍽️', fountain: '⛲', smart_door: '🚪', litter_box: '🧺' } as Record<string, string>)[d.device_type] ?? '🔌'}
               </span>
               <span className="mt-1 block font-bold">{d.model ?? d.device_type}</span>
               <span className={`text-xs ${d.status === 'active' ? 'text-safe' : 'text-tier-attention'}`}>

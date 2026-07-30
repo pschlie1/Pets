@@ -860,6 +860,78 @@ paths:
                   - { sku: filt-std-4pk, label: Fountain filter 4-pack, price_cents: 1299, device_type: fountain }
                   - { sku: batt-rfa-67, label: Collar battery 2-pack, price_cents: 2499, device_type: containment_collar }
 
+  /v1/ecosystem:
+    get:
+      tags: [Client Contract]
+      summary: The connected-assortment catalog
+      security: []
+      description: >-
+        Live product lines (with their device_type, so clients can mark "in
+        your home") and the coming-soon roadmap. Static reference data.
+      responses:
+        '200':
+          description: The catalog.
+          content:
+            application/json:
+              example:
+                data:
+                  - { category: 'Access & doors', name: SmartDoor Connect, tagline: 'Per-pet access, curfew, remote lock.', status: live, device_type: smart_door, icon: '🚪' }
+                  - { category: 'Health & wellness', name: Smart bed vitals, tagline: 'Non-wearable vitals.', status: coming_soon, device_type: null, icon: '🛏️' }
+
+  /v1/devices/{deviceId}/settings:
+    patch:
+      tags: [Device Telemetry]
+      summary: Control a device — the smart door's lock and curfew
+      description: >-
+        Lock/unlock now, and an overnight curfew window (HH:MM local, both set
+        or both null). Smart doors only today. Every change also writes a
+        door_status event into the telemetry record as an audit trail.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+          example: dev_door_9003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locked, curfew_start, curfew_end]
+              properties:
+                locked: { type: boolean }
+                curfew_start: { type: [string, 'null'], example: '22:00' }
+                curfew_end: { type: [string, 'null'], example: '06:00' }
+      responses:
+        '200':
+          description: Applied settings.
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/households/{householdId}/door-activity:
+    get:
+      tags: [Device Telemetry]
+      summary: The smart door's comings & goings log
+      description: door_passage events with per-pet attribution plus the door's current settings.
+      parameters:
+        - { $ref: '#/components/parameters/householdId' }
+        - name: hours
+          in: query
+          schema: { type: integer, default: 24, minimum: 1, maximum: 504 }
+      responses:
+        '200':
+          description: The log, newest first (max 100 entries).
+          content:
+            application/json:
+              example:
+                data:
+                  settings: { locked: false, curfew_start: '22:00', curfew_end: '06:00' }
+                  entries: [{ occurred_at: '2026-07-30T14:02:00Z', pet_id: pet_5003, pet_name: Stitch, direction: out }]
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /v1/orders:
     post:
       tags: [Commerce]
@@ -1164,17 +1236,17 @@ components:
       enum: [pet_health, pet_safety, equipment]
     DeviceType:
       type: string
-      enum: [containment_collar, feeder, fountain]
+      enum: [containment_collar, feeder, fountain, smart_door, litter_box]
     Metric:
       type: string
-      enum: [resting_heart_rate, walk_minutes, water_intake_ml, food_intake_g, sleep_hours, feeder_schedule_drift_min, fountain_flow_rate, collar_battery_pct, boundary_safety, containment_signal]
+      enum: [resting_heart_rate, walk_minutes, water_intake_ml, food_intake_g, sleep_hours, feeder_schedule_drift_min, fountain_flow_rate, collar_battery_pct, boundary_safety, containment_signal, door_crossings_per_day, litter_visits_per_day]
     KnownEventType:
       type: string
-      enum: [boundary_check, boundary_event, heart_rate_reading, activity_session, sleep_session, drinking_session, feeding_session, device_health_ping]
+      enum: [boundary_check, boundary_event, heart_rate_reading, activity_session, sleep_session, drinking_session, feeding_session, door_passage, door_status, intruder_detection, litter_visit, device_health_ping]
       description: Event types the engine scores today. Unknown types are stored and flagged, never rejected.
     ScenarioKey:
       type: string
-      enum: [info_water_dip, monitor_feeder_drift, attention_cold_snap, attention_fountain_filter, urgent_meeko_heart, breach_safe_return, collar_signal_lost, collar_battery_critical, emergency_boundary_breach]
+      enum: [info_water_dip, monitor_feeder_drift, attention_cold_snap, attention_fountain_filter, urgent_meeko_heart, breach_safe_return, collar_signal_lost, collar_battery_critical, emergency_boundary_breach, door_raccoon_lockout, litter_visits_spike]
 
     Error:
       type: object

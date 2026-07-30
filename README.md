@@ -168,6 +168,15 @@ Two demo-specific mechanisms worth knowing:
   detected and surfaced as "containment unverified" rather than a false all-clear, and
   a collar battery ≤ 20% scores as *urgent* because the exposure is safety, not maintenance.
 
+## The connected ecosystem (extensibility, proven)
+
+Two newer product lines — **SmartDoor Connect** (per-pet access, curfew, remote lock,
+comings & goings log, raccoon lockout) and the **Smart Litter Box** (visit frequency +
+weigh-ins → the early feline urinary signal for Stitch the cat) — were added with ZERO new
+ingestion endpoints: they publish through the same telemetry envelope, gain baselines from
+the same engine, and surface in the same insight feed. `GET /v1/ecosystem` serves the full
+assortment catalog (live + coming soon) that the `/ecosystem` page renders.
+
 ## The engagement & business loop
 
 Board-story surfaces, all computed live from the same data the rest of the app renders:

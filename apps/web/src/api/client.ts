@@ -4,6 +4,9 @@ import type {
   Briefing,
   ClientMeta,
   Consumable,
+  DoorActivity,
+  DoorSettings,
+  EcosystemLine,
   ContainmentStatus,
   DayHistoryResponse,
   DealerStatus,
@@ -138,6 +141,14 @@ export const api = {
   getOrders: () => request<Order[]>(`/v1/households/${sessionHouseholdId}/orders`),
   getConsumables: () => request<Consumable[]>('/v1/catalog/consumables'),
   getMeta: () => request<ClientMeta>('/v1/meta'),
+  getEcosystem: () => request<EcosystemLine[]>('/v1/ecosystem'),
+  getDoorActivity: (hours = 24) =>
+    request<DoorActivity>(`/v1/households/${sessionHouseholdId}/door-activity?hours=${hours}`),
+  setDoorSettings: (deviceId: string, settings: DoorSettings) =>
+    request<{ device_id: string; settings: DoorSettings }>(`/v1/devices/${deviceId}/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    }),
   placeOrder: (deviceId: string, sku: string) =>
     request<Order>('/v1/orders', { method: 'POST', body: JSON.stringify({ device_id: deviceId, sku }) }),
   getVetShares: (petId: string) => request<VetShareWithStatus[]>(`/v1/pets/${petId}/vet-report/shares`),

@@ -14,6 +14,7 @@ import { PetMarkers, YardMap } from '../components/YardMap';
 import { YardHeatLayer } from '../components/YardHeatLayer';
 import { YardPathLayer } from '../components/YardPathLayer';
 import { InsightCard } from '../components/InsightCard';
+import { ComingsGoings } from '../components/ComingsGoings';
 
 const STATE_BADGE: Record<ContainmentPetStatus['containment_state'], { text: string; cls: string; icon: string }> = {
   protected: { text: 'Protected', cls: 'bg-safe-soft text-safe', icon: '🛡️' },
@@ -484,6 +485,8 @@ export function SafetyCenter() {
           <ContainmentCard key={pet.pet_id} pet={pet} />
         ))}
       </section>
+
+      <ComingsGoings refreshKey={insights.length} />
 
       <DealerCard refreshKey={insights.length} />
 

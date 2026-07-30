@@ -207,7 +207,7 @@ export function deviceHealthSeries(
       occurred_at: iso(start + d * DAY + 3 * HOUR),
       payload: {
         check: 'daily_status',
-        battery_pct: Math.max(5, Math.round(startPct - d * drain + gaussian(rng, 0, 0.5))),
+        battery_pct: Math.min(100, Math.max(5, Math.round(startPct - d * drain + gaussian(rng, 0, 0.5)))),
         signal_strength: randInt(rng, 3, 5),
         firmware: '2.4.1',
       },

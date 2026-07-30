@@ -85,7 +85,16 @@ curl -H "$AUTH" localhost:3001/v1/households/hh_2291/score
 curl -H "$AUTH" localhost:3001/v1/households/hh_2291/milestones
 curl -H "$AUTH" localhost:3001/v1/households/hh_2291/dealer
 
-# 6d. Replenishment: order the consumable that fits a device
+# 6d. Smart door: lock it, set the curfew, read the comings & goings log
+curl -X PATCH -H "$AUTH" -H 'Content-Type: application/json' \
+  localhost:3001/v1/devices/dev_door_9003/settings \
+  -d '{"locked":true,"curfew_start":"22:00","curfew_end":"06:00"}'
+curl -H "$AUTH" localhost:3001/v1/households/hh_2291/door-activity
+
+# 6e. The ecosystem catalog (public, like /v1/meta)
+curl localhost:3001/v1/ecosystem
+
+# 6f. Replenishment: order the consumable that fits a device
 curl -X POST -H "$AUTH" -H 'Content-Type: application/json' \
   localhost:3001/v1/orders -d '{"device_id":"dev_fountain_9002","sku":"filt-std-4pk"}'
 
@@ -167,11 +176,11 @@ es.addEventListener('insight', (e) => {
 | Urgency tiers | `info` · `monitor` · `attention` · `urgent` · `emergency` |
 | Insight types | `pet_health` · `pet_safety` · `equipment` |
 | Species | `dog` · `cat` · `other` |
-| Device types | `containment_collar` · `feeder` · `fountain` |
-| Known event types | `boundary_check` · `boundary_event` · `heart_rate_reading` · `activity_session` · `sleep_session` · `drinking_session` · `feeding_session` · `device_health_ping` |
-| Pet metrics | `resting_heart_rate` · `walk_minutes` · `water_intake_ml` · `food_intake_g` · `sleep_hours` |
+| Device types | `containment_collar` · `feeder` · `fountain` · `smart_door` · `litter_box` |
+| Known event types | `boundary_check` · `boundary_event` · `heart_rate_reading` · `activity_session` · `sleep_session` · `drinking_session` · `feeding_session` · `door_passage` · `door_status` · `intruder_detection` · `litter_visit` · `device_health_ping` |
+| Pet metrics | `resting_heart_rate` · `walk_minutes` · `water_intake_ml` · `food_intake_g` · `sleep_hours` · `door_crossings_per_day` · `litter_visits_per_day` |
 | Share methods | `portal` · `email` · `link` |
-| Scenario keys | `info_water_dip` · `monitor_feeder_drift` · `attention_cold_snap` · `attention_fountain_filter` · `urgent_meeko_heart` · `breach_safe_return` · `collar_signal_lost` · `collar_battery_critical` · `emergency_boundary_breach` |
+| Scenario keys | `info_water_dip` · `monitor_feeder_drift` · `attention_cold_snap` · `attention_fountain_filter` · `urgent_meeko_heart` · `breach_safe_return` · `collar_signal_lost` · `collar_battery_critical` · `emergency_boundary_breach` · `door_raccoon_lockout` · `litter_visits_spike` |
 
 ## Demo-tier notes a developer should know
 

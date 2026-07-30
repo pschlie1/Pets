@@ -3,8 +3,10 @@ import { api, type DeviceStatus } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
 import { InsightCard } from '../components/InsightCard';
 import { OrderButton } from '../components/OrderButton';
+import { DoorControls } from '../components/DoorControls';
+import { Link } from 'react-router-dom';
 
-const ICONS: Record<string, string> = { containment_collar: '📡', feeder: '🍽️', fountain: '⛲' };
+const ICONS: Record<string, string> = { containment_collar: '📡', feeder: '🍽️', fountain: '⛲', smart_door: '🚪', litter_box: '🧺' };
 
 export function Equipment() {
   const { household, insights } = useHousehold();
@@ -19,7 +21,12 @@ export function Equipment() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-extrabold">Equipment health</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-2xl font-extrabold">Equipment health</h1>
+        <Link to="/ecosystem" className="text-sm font-bold text-action hover:underline">
+          See the full ecosystem →
+        </Link>
+      </div>
       <p className="-mt-4 text-sm text-gray-500">
         The same insight engine watches your gear — a failing device gets flagged before it becomes a gap for your pets.
       </p>
@@ -69,6 +76,7 @@ export function Equipment() {
                   <OrderButton deviceId={d.id} deviceType={d.device_type} />
                 </div>
               )}
+              {d.device_type === 'smart_door' && <DoorControls deviceId={d.id} />}
             </div>
           );
         })}

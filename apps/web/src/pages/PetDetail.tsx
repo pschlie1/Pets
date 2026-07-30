@@ -24,6 +24,7 @@ export function PetDetail() {
 
   if (!pet) return <p className="p-8 text-gray-400">Fetching…</p>;
 
+  const metrics = trend_metrics.filter((t) => (t.species as string[]).includes(pet.species));
   const petInsights = insights.filter((i) => i.pet_id === pet.id);
   const age = pet.date_of_birth
     ? Math.floor((Date.now() - Date.parse(pet.date_of_birth)) / (365.25 * 86_400_000))
@@ -65,7 +66,7 @@ export function PetDetail() {
           14-day trends <span className="normal-case font-semibold">(yellow band = {pet.name}'s own normal range)</span>
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {trend_metrics.map((t) => (
+          {metrics.map((t) => (
             <TrendCard key={t.metric} label={t.label} unit={t.unit} series={series[t.metric] ?? null} />
           ))}
         </div>

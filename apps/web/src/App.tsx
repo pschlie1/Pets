@@ -5,6 +5,7 @@ import { Toast } from './components/Toast';
 import { Chat } from './pages/Chat';
 import { Dashboard } from './pages/Dashboard';
 import { DemoPanel } from './pages/DemoPanel';
+import { Ecosystem } from './pages/Ecosystem';
 import { Equipment } from './pages/Equipment';
 import { HealthCenter } from './pages/HealthCenter';
 import { Insights } from './pages/Insights';
@@ -113,6 +114,7 @@ function AppShell() {
               <Route path="/health" element={<HealthCenter />} />
               <Route path="/insights" element={<Insights />} />
               <Route path="/equipment" element={<Equipment />} />
+              <Route path="/ecosystem" element={<Ecosystem />} />
               <Route path="/pets/:petId" element={<PetDetail />} />
               <Route path="/pets/:petId/vet-report" element={<VetReport />} />
               <Route path="/pets/:petId/chat" element={<Chat />} />

@@ -13,13 +13,16 @@ function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | nu
   const [series, setSeries] = useState<Record<string, MetricSeries>>({});
   const { insights } = useHousehold();
   const { trend_metrics } = useMeta();
+  // The contract says which metrics apply to this species (a cat gets litter
+  // visits, not collar walk time) — no empty chart cards.
+  const metrics = trend_metrics.filter((t) => (t.species as string[]).includes(pet.species));
 
   useEffect(() => {
     setSeries({});
-    for (const t of trend_metrics) {
+    for (const t of metrics) {
       void api.getPetMetrics(pet.id, t.metric).then((s) => setSeries((prev) => ({ ...prev, [t.metric]: s })));
     }
-  }, [pet.id, insights.length, trend_metrics]);
+  }, [pet.id, insights.length, trend_metrics]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="rounded-2xl bg-card p-5 shadow-sm">
@@ -38,7 +41,7 @@ function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | nu
         </span>
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {trend_metrics.map((t) => (
+        {metrics.map((t) => (
           <TrendCard key={t.metric} label={t.label} unit={t.unit} series={series[t.metric] ?? null} />
         ))}
       </div>
@@ -95,7 +98,7 @@ export function HealthCenter() {
       <header>
         <h1 className="text-2xl font-extrabold">Health Center</h1>
         <p className="text-sm text-gray-500">
-          Every pet measured against their own baseline — heart rate, walks, meals, water, and sleep.
+          Every pet measured against their own baseline — from heart rate and walks to litter box visits.
         </p>
       </header>
 
