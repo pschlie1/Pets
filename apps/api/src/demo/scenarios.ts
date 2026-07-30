@@ -6,6 +6,7 @@ import { mulberry32, randInt } from '../db/seed/rng';
 import {
   evaluateCollarSignal,
   evaluateDevice,
+  evaluateIntruder,
   evaluatePetMetric,
   evaluateSafetyEvent,
   type InsightListener,
@@ -351,6 +352,65 @@ const emergencyBoundaryBreach: Injector = async (db, now, listener) => {
   return insight ? [insight] : [];
 };
 
+/** S10: the SmartDoor recognizes a raccoon at 2 AM, locks itself, and reports the save. */
+const doorRaccoonLockout: Injector = async (db, now, listener) => {
+  const at = now - 6 * HOUR; // overnight, a few hours ago
+  const payload = { species_guess: 'raccoon', confidence: 0.93, action_taken: 'door_locked' };
+  insertRaw(db, REF.householdId, [
+    {
+      device_id: REF.door,
+      pet_id: null,
+      device_type: 'smart_door',
+      event_type: 'intruder_detection',
+      occurred_at: at,
+      payload,
+    },
+    {
+      device_id: REF.door,
+      pet_id: null,
+      device_type: 'smart_door',
+      event_type: 'door_status',
+      occurred_at: at + 1000,
+      payload: { locked: true, cause: 'intruder_detected' },
+    },
+  ]);
+  const insight = await evaluateIntruder(
+    db,
+    { household_id: REF.householdId, device_id: REF.door, payload },
+    now,
+    listener,
+  );
+  return insight ? [insight] : [];
+};
+
+/** S11: Stitch's litter visits run ~2.5x baseline for three days — the early feline urinary signal. */
+const litterVisitsSpike: Injector = async (db, now, listener) => {
+  const rng = mulberry32(20260731);
+  clearWindow(db, REF.stitch, 'litter_visit', now, 3);
+  const events: RawEvent[] = [];
+  // Baseline ≈ 3.5 visits/day; inject 8-9 across each of the last three rolling days.
+  for (let day = 0; day < 3; day++) {
+    const visits = randInt(rng, 8, 9);
+    for (let i = 0; i < visits; i++) {
+      events.push({
+        device_id: REF.litterBox,
+        pet_id: REF.stitch,
+        device_type: 'litter_box',
+        event_type: 'litter_visit',
+        occurred_at: now - day * DAY - randInt(rng, 1, 23) * HOUR,
+        payload: {
+          duration_s: randInt(rng, 30, 90), // shorter, unproductive visits
+          weight_lbs: 9.4,
+          clump_detected: rng() < 0.4,
+        },
+      });
+    }
+  }
+  insertRaw(db, REF.householdId, events);
+  const insight = await evaluatePetMetric(db, REF.stitch, 'litter_visits_per_day', now, listener);
+  return insight ? [insight] : [];
+};
+
 const INJECTORS: Record<ScenarioKey, Injector> = {
   info_water_dip: infoWaterDip,
   monitor_feeder_drift: monitorFeederDrift,
@@ -361,6 +421,8 @@ const INJECTORS: Record<ScenarioKey, Injector> = {
   collar_signal_lost: collarSignalLost,
   collar_battery_critical: collarBatteryCritical,
   emergency_boundary_breach: emergencyBoundaryBreach,
+  door_raccoon_lockout: doorRaccoonLockout,
+  litter_visits_spike: litterVisitsSpike,
 };
 
 export async function triggerScenario(

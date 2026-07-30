@@ -67,10 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_pets_household ON pets(household_id) WHERE delete
 CREATE TABLE IF NOT EXISTS devices (
     id TEXT PRIMARY KEY,
     household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-    device_type TEXT NOT NULL CHECK (device_type IN ('containment_collar', 'feeder', 'fountain')),
+    device_type TEXT NOT NULL CHECK (device_type IN ('containment_collar', 'feeder', 'fountain', 'smart_door', 'litter_box')),
     model TEXT,
     assignment_mode TEXT NOT NULL CHECK (assignment_mode IN ('dedicated', 'shared')),
     has_pet_attribution INTEGER NOT NULL DEFAULT 0,
+    -- Device-type-specific settings JSON (e.g. the smart door's lock + curfew).
+    settings TEXT,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'low_battery', 'offline', 'needs_service')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

@@ -9,6 +9,7 @@ import { breedRoutes } from './routes/breeds';
 import { containmentRoutes } from './routes/containment';
 import { docsRoutes } from './routes/docs';
 import { demoRoutes } from './routes/demo';
+import { deviceRoutes } from './routes/devices';
 import { engagementRoutes } from './routes/engagement';
 import { householdRoutes } from './routes/households';
 import { insightRoutes } from './routes/insights';
@@ -115,6 +116,7 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
   app.use('/v1', containmentRoutes(db));
   app.use('/v1', engagementRoutes(db));
   app.use('/v1', orderRoutes(db));
+  app.use('/v1', deviceRoutes(db));
   app.use('/v1', telemetryRoutes(db, onInsight));
   app.use('/v1', breedRoutes(db));
   app.use('/v1', insightRoutes(db));

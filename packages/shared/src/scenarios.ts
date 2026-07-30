@@ -14,6 +14,8 @@ export const SCENARIO_KEYS = [
   'collar_signal_lost',
   'collar_battery_critical',
   'emergency_boundary_breach',
+  'door_raccoon_lockout',
+  'litter_visits_spike',
 ] as const;
 export type ScenarioKey = (typeof SCENARIO_KEYS)[number];
 
@@ -112,6 +114,26 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioMeta> = {
     insightType: 'pet_safety',
     watchFor:
       'Immediate emergency insight, emergency vet contact surfaced, and the dealer associate alerted in parallel.',
+  },
+  door_raccoon_lockout: {
+    key: 'door_raccoon_lockout',
+    name: 'Raccoon at the pet door',
+    description:
+      'At 2 AM the SmartDoor recognizes an approaching raccoon, locks itself, and logs the deterrence.',
+    expectedUrgency: 'attention',
+    insightType: 'pet_safety',
+    watchFor:
+      "A calm 'the system already handled it' insight and a locked-door entry in the comings & goings log — protection without a 3 AM panic.",
+  },
+  litter_visits_spike: {
+    key: 'litter_visits_spike',
+    name: "Stitch's litter box visits spike",
+    description:
+      "Stitch's litter box visits run well above his own baseline for three days — the classic early feline urinary signal.",
+    expectedUrgency: 'urgent',
+    insightType: 'pet_health',
+    watchFor:
+      'Cat-specific health monitoring: an urgent insight with a vet recommendation, built from a product only a cat household has.',
   },
 };
 

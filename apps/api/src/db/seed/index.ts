@@ -9,9 +9,11 @@ import {
   boundaryCheckSeries,
   chicagoSummerTemps,
   deviceHealthSeries,
+  doorPassageSeries,
   drinkingSeries,
   feedingSeries,
   heartRateSeries,
+  litterVisitSeries,
   sleepSeries,
   type GeneratedEvent,
 } from './generators';
@@ -25,10 +27,13 @@ export const REF = {
   householdId: 'hh_2291',
   meeko: 'pet_5001',
   lilo: 'pet_5002',
+  stitch: 'pet_5003',
   meekoCollar: 'dev_collar_5001',
   liloCollar: 'dev_collar_5002',
   feeder: 'dev_feeder_9001',
   fountain: 'dev_fountain_9002',
+  door: 'dev_door_9003',
+  litterBox: 'dev_litter_9004',
   zip: '60614',
 } as const;
 
@@ -95,6 +100,7 @@ export function seedAll(db: Db, now: number = Date.now()): void {
     `);
     petStmt.run(REF.meeko, REF.householdId, 'Meeko', 'dog', BREED_IDS.ckcs, '2017-04-12', 21.0, 'male');
     petStmt.run(REF.lilo, REF.householdId, 'Lilo', 'dog', BREED_IDS.ckcs, '2018-06-03', 20.0, 'male');
+    petStmt.run(REF.stitch, REF.householdId, 'Stitch', 'cat', BREED_IDS.catDsh, '2022-05-20', 9.5, 'male');
     // Owner-provided profile photos, served via GET /v1/pets/:id/photo.
     const photoStmt = db.prepare(`UPDATE pets SET photo = ? WHERE id = ?`);
     for (const [petId, b64] of Object.entries(PET_PHOTOS_B64)) {
@@ -109,6 +115,13 @@ export function seedAll(db: Db, now: number = Date.now()): void {
     devStmt.run(REF.liloCollar, REF.householdId, 'containment_collar', 'Boundary Plus GPS 2.0', 'dedicated');
     devStmt.run(REF.feeder, REF.householdId, 'feeder', 'Connected Care Smart Feeder', 'shared');
     devStmt.run(REF.fountain, REF.householdId, 'fountain', 'Connected Care Smart Fountain', 'shared');
+    devStmt.run(REF.door, REF.householdId, 'smart_door', 'SmartDoor Connect', 'shared');
+    devStmt.run(REF.litterBox, REF.householdId, 'litter_box', 'Connected Care Smart Litter Box', 'dedicated');
+    // The door ships with an overnight curfew; "control when it opens".
+    db.prepare(`UPDATE devices SET settings = ? WHERE id = ?`).run(
+      JSON.stringify({ locked: false, curfew_start: '22:00', curfew_end: '06:00' }),
+      REF.door,
+    );
 
     const linkStmt = db.prepare(`INSERT INTO device_pet_links (id, device_id, pet_id) VALUES (?, ?, ?)`);
     for (const [dev, pet] of [
@@ -118,6 +131,12 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       [REF.feeder, REF.lilo],
       [REF.fountain, REF.meeko],
       [REF.fountain, REF.lilo],
+      [REF.feeder, REF.stitch],
+      [REF.fountain, REF.stitch],
+      [REF.door, REF.meeko],
+      [REF.door, REF.lilo],
+      [REF.door, REF.stitch],
+      [REF.litterBox, REF.stitch],
     ] as const) {
       linkStmt.run(uuid(), dev, pet);
     }
@@ -127,6 +146,8 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       [REF.liloCollar, 'containment_collar'],
       [REF.feeder, 'feeder'],
       [REF.fountain, 'fountain'],
+      [REF.door, 'smart_door'],
+      [REF.litterBox, 'litter_box'],
     ]);
 
     const temps = chicagoSummerTemps(rng, SEED_DAYS);
@@ -149,6 +170,16 @@ export function seedAll(db: Db, now: number = Date.now()): void {
       ...deviceHealthSeries(rng, { deviceId: REF.meekoCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 98 }),
       ...deviceHealthSeries(rng, { deviceId: REF.liloCollar, days: SEED_DAYS, endMs: now, startBatteryPct: 96 }),
       ...deviceHealthSeries(rng, { deviceId: REF.fountain, days: SEED_DAYS, endMs: now, startBatteryPct: 100, drainPerDay: 0 }),
+      // Stitch drinks and eats from the shared fountain/feeder (cat portions).
+      ...drinkingSeries(rng, { deviceId: REF.fountain, petId: REF.stitch, days: SEED_DAYS, endMs: now, mlPerVisit: 22, dailyTempsF: tempHighs }),
+      ...feedingSeries(rng, { deviceId: REF.feeder, petIds: [REF.stitch], days: SEED_DAYS, endMs: now }),
+      // SmartDoor comings & goings + litter box visits.
+      ...doorPassageSeries(rng, { deviceId: REF.door, petId: REF.meeko, days: SEED_DAYS, endMs: now, tripsPerDay: [2, 3] }),
+      ...doorPassageSeries(rng, { deviceId: REF.door, petId: REF.lilo, days: SEED_DAYS, endMs: now, tripsPerDay: [2, 3] }),
+      ...doorPassageSeries(rng, { deviceId: REF.door, petId: REF.stitch, days: SEED_DAYS, endMs: now, tripsPerDay: [1, 2] }),
+      ...litterVisitSeries(rng, { deviceId: REF.litterBox, petId: REF.stitch, days: SEED_DAYS, endMs: now }),
+      ...deviceHealthSeries(rng, { deviceId: REF.door, days: SEED_DAYS, endMs: now, startBatteryPct: 92, drainPerDay: 0.4 }),
+      ...deviceHealthSeries(rng, { deviceId: REF.litterBox, days: SEED_DAYS, endMs: now, startBatteryPct: 100, drainPerDay: 0 }),
     ];
     insertEvents(db, REF.householdId, deviceTypes, events);
 
@@ -177,7 +208,7 @@ export function seedAll(db: Db, now: number = Date.now()): void {
     ownerStmt.run('owner_6001', 'sam@connectedcare.demo', 'Sam (Duke & Ash)', REF2.householdId);
 
     // Baselines computed from the actual seeded telemetry, not hardcoded.
-    for (const petId of [REF.meeko, REF.lilo, REF2.duke, REF2.ash]) {
+    for (const petId of [REF.meeko, REF.lilo, REF.stitch, REF2.duke, REF2.ash]) {
       recomputeBaselines(db, petId, now);
     }
   })();

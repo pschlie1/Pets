@@ -24,6 +24,8 @@ export const PET_METRICS = [
   'water_intake_ml',
   'food_intake_g',
   'sleep_hours',
+  'litter_visits_per_day',
+  'door_crossings_per_day',
 ] as const;
 export type PetMetric = (typeof PET_METRICS)[number];
 
@@ -40,6 +42,8 @@ export function dailyMetricSeries(
     water_intake_ml: 'drinking_session',
     food_intake_g: 'feeding_session',
     sleep_hours: 'sleep_session',
+    litter_visits_per_day: 'litter_visit',
+    door_crossings_per_day: 'door_passage',
   }[metric];
 
   const rows = db
@@ -72,6 +76,13 @@ export function dailyMetricSeries(
         break;
       case 'sleep_hours':
         if (typeof payload.duration_hours === 'number') value = payload.duration_hours;
+        break;
+      // Count metrics: every event contributes 1; the daily sum IS the count.
+      case 'litter_visits_per_day':
+        value = 1;
+        break;
+      case 'door_crossings_per_day':
+        value = payload.direction === 'out' ? 1 : null; // count trips, not both swings
         break;
     }
     if (value === null) continue;

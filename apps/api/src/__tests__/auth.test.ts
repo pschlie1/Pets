@@ -127,7 +127,7 @@ describe('tenant isolation — one identity can never reach another household', 
 
   it("each identity sees only its own data", async () => {
     const peterHh = await asPeter(`/v1/households/${REF.householdId}`);
-    expect(peterHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Lilo', 'Meeko']);
+    expect(peterHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Lilo', 'Meeko', 'Stitch']);
     const samHh = await asSam(`/v1/households/${REF2.householdId}`);
     expect(samHh.body.data.pets.map((p: { name: string }) => p.name).sort()).toEqual(['Ash', 'Duke']);
   });
@@ -146,8 +146,8 @@ describe('tenant isolation — one identity can never reach another household', 
     expect((await asSam(`/v1/pets/${REF2.duke}/photo`)).status).toBe(404);
     // The household payload flags who has a photo — never the bytes.
     const hh = await asPeter(`/v1/households/${REF.householdId}`);
-    for (const pet of hh.body.data.pets as { has_photo: number; photo?: unknown }[]) {
-      expect(pet.has_photo).toBe(1);
+    for (const pet of hh.body.data.pets as { name: string; has_photo: number; photo?: unknown }[]) {
+      expect(pet.has_photo).toBe(pet.name === 'Stitch' ? 0 : 1); // the cat has no photo yet
       expect(pet.photo).toBeUndefined();
     }
   });

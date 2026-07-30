@@ -69,6 +69,12 @@ function breedRiskWeight(db: Db, pet: PetRow, metric: string, now: number): { we
   if (metric === 'food_intake_g' && conditions.some((c) => /obesity/i.test(c.condition))) {
     return { weight: 1.2, context: `The breed has a known obesity tendency, so intake trends matter.` };
   }
+  if (metric === 'litter_visits_per_day' && conditions.some((c) => /urinary|kidney/i.test(c.condition))) {
+    return {
+      weight: 1.6,
+      context: `Cats mask urinary trouble; a sustained change in litter box frequency is one of the earliest visible signals.`,
+    };
+  }
   return { weight: 1, context: null };
 }
 
@@ -588,12 +594,65 @@ export async function evaluateCollarSignal(
   );
 }
 
+/**
+ * An intruder_detection event from the smart door: the device already acted
+ * (deterred and/or locked); the insight tells the owner what was prevented.
+ */
+export async function evaluateIntruder(
+  db: Db,
+  event: { household_id: string; device_id: string; payload: Record<string, unknown> },
+  now: number = Date.now(),
+  listener?: InsightListener,
+): Promise<Insight | null> {
+  const p = event.payload as { species_guess?: string; action_taken?: string };
+  const device = db.prepare(`SELECT model FROM devices WHERE id = ?`).get(event.device_id) as
+    | { model: string | null }
+    | undefined;
+  return persistInsight(
+    db,
+    {
+      householdId: event.household_id,
+      petId: null,
+      deviceId: event.device_id,
+      insightType: 'pet_safety',
+      metric: 'door_security',
+      result: {
+        severityScore: 45,
+        urgency: 'attention',
+        personalDeviation: 0,
+        confidence: 'normal',
+        factors: [p.species_guess ?? 'an unrecognized animal'],
+      },
+      now,
+      narratorInput: {
+        insightType: 'pet_safety',
+        urgency: 'attention',
+        metric: 'door_security',
+        petName: null,
+        deviceLabel: device?.model ?? 'SmartDoor',
+        currentValue: null,
+        baselineMean: null,
+        deviationPct: null,
+        durationDays: 1,
+        factors: [`a ${p.species_guess ?? 'raccoon'} (${p.action_taken ?? 'door locked automatically'})`],
+        breedContext: null,
+        siblingName: null,
+        siblingDeviated: null,
+        environmentNote: null,
+      },
+    },
+    listener,
+  );
+}
+
 const EVENT_METRIC: Record<string, PetMetric> = {
   heart_rate_reading: 'resting_heart_rate',
   activity_session: 'walk_minutes',
   drinking_session: 'water_intake_ml',
   feeding_session: 'food_intake_g',
   sleep_session: 'sleep_hours',
+  litter_visit: 'litter_visits_per_day',
+  door_passage: 'door_crossings_per_day',
 };
 
 /** Entry point after every telemetry POST: routes the event to the right evaluation. */
@@ -613,6 +672,8 @@ export async function evaluateAfterEvent(
 
   if (event.event_type === 'boundary_event') {
     insights.push(await evaluateSafetyEvent(db, event, now, listener));
+  } else if (event.event_type === 'intruder_detection') {
+    insights.push(await evaluateIntruder(db, event, now, listener));
   } else if (event.event_type === 'boundary_check') {
     // A check-in arriving for an offline collar means the signal is back.
     db.prepare(`UPDATE devices SET status = 'active' WHERE id = ? AND status = 'offline'`).run(event.device_id);

@@ -19,6 +19,9 @@ export const METRIC_LABELS: Record<string, string> = {
   boundary_safety: 'boundary safety',
   containment_signal: 'collar signal',
   collar_battery_pct: 'collar battery',
+  litter_visits_per_day: 'litter box visits',
+  door_crossings_per_day: 'door comings and goings',
+  door_security: 'door security',
 };
 
 export function label(metric: string): string {
@@ -141,6 +144,18 @@ export function narratorTemplate(input: NarratorInput): { summary: string; recom
         `This needs your attention right now — whether the cause is a health event or a device failure, the situation is the same. ` +
         `Your local dealer associate has been alerted in parallel.`,
       recommendedAction: `Go to ${name} now, and call your emergency vet contact if ${name} is unresponsive.`,
+    };
+  }
+
+  // Door security: the system already acted; the insight reports the save.
+  if (input.metric === 'door_security') {
+    const intruder = input.factors[0] ?? 'an unrecognized animal';
+    return {
+      summary:
+        `The ${input.deviceLabel ?? 'SmartDoor'} detected ${intruder} approaching overnight and locked itself automatically. ` +
+        `No unrecognized animal got inside — your pets' collar tags still open the door normally.`,
+      recommendedAction:
+        'Nothing urgent — review the door log, and consider keeping the overnight curfew if visits continue.',
     };
   }
 

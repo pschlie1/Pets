@@ -249,3 +249,39 @@ export interface VetShareWithStatus extends VetShare {
   stage: VetShareStage;
   clinic_note: string | null;
 }
+
+/* ------------------------------ smart door ------------------------------- */
+
+/** The smart door's owner-controlled settings ("control when it opens"). */
+export interface DoorSettings {
+  locked: boolean;
+  /** Local HH:MM; both null = no curfew. */
+  curfew_start: string | null;
+  curfew_end: string | null;
+}
+
+/** One pet's pass through the smart door. */
+export interface DoorActivityEntry {
+  occurred_at: string;
+  pet_id: string | null;
+  pet_name: string | null;
+  direction: 'in' | 'out';
+}
+
+export interface DoorActivity {
+  household_id: string;
+  device_id: string;
+  settings: DoorSettings;
+  entries: DoorActivityEntry[];
+}
+
+/** One product line in the connected-ecosystem catalog. */
+export interface EcosystemLine {
+  category: string;
+  name: string;
+  tagline: string;
+  status: 'live' | 'coming_soon';
+  /** Set for live lines so clients can match against household devices. */
+  device_type: string | null;
+  icon: string;
+}

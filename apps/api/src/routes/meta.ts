@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { buildClientMeta } from '@connected-care/shared';
+import { buildClientMeta, ECOSYSTEM_LINES } from '@connected-care/shared';
 
 /**
  * The client contract: metric catalog, urgency-tier language, score bands,
@@ -12,6 +12,12 @@ export function metaRoutes(): Router {
   r.get('/meta', (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.json({ data: buildClientMeta() });
+  });
+  // The connected-assortment catalog: live lines + the roadmap. Public
+  // reference; clients mark lines "in your home" by matching device_type.
+  r.get('/ecosystem', (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.json({ data: ECOSYSTEM_LINES });
   });
   return r;
 }

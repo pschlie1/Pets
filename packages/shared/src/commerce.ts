@@ -13,12 +13,14 @@ export interface Consumable {
   sku: string;
   label: string;
   price_cents: number;
-  device_type: 'fountain' | 'containment_collar' | 'feeder';
+  device_type: 'fountain' | 'containment_collar' | 'feeder' | 'smart_door' | 'litter_box';
 }
 
 export const CONSUMABLES: Consumable[] = [
   { sku: 'filt-std-4pk', label: 'Fountain filter 4-pack', price_cents: 1299, device_type: 'fountain' },
   { sku: 'batt-rfa-67', label: 'Collar battery 2-pack', price_cents: 2499, device_type: 'containment_collar' },
+  { sku: 'litter-clump-28', label: 'Clumping litter 28 lb', price_cents: 1899, device_type: 'litter_box' },
+  { sku: 'batt-door-4aa', label: 'Door battery 4-pack', price_cents: 999, device_type: 'smart_door' },
 ];
 
 export function consumableForDevice(deviceType: string): Consumable | null {

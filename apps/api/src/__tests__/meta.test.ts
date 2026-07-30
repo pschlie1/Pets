@@ -35,12 +35,14 @@ describe('the client contract — GET /v1/meta', () => {
       expect(tier.explainer.what_you_do.length).toBeGreaterThan(5);
     }
 
-    // The five chartable metrics with display labels and units.
-    expect(meta.trend_metrics).toHaveLength(5);
+    // The chartable metrics with display labels, units, and species applicability.
+    expect(meta.trend_metrics).toHaveLength(6);
     for (const m of meta.trend_metrics) {
       expect(m.label.length).toBeGreaterThan(2);
       expect(m.unit.length).toBeGreaterThan(1);
+      expect(m.species.length).toBeGreaterThan(0);
     }
+    expect(meta.trend_metrics.find((m) => m.metric === 'litter_visits_per_day')?.species).toEqual(['cat']);
 
     // Score bands cover 0-100, descending, labelled.
     expect(meta.score_bands.map((b) => b.min_score)).toEqual([90, 70, 40, 0]);

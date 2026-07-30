@@ -1,4 +1,4 @@
-import { URGENCY_TIERS, urgencyRank, type Urgency } from './enums';
+import { URGENCY_TIERS, urgencyRank, type Species, type Urgency } from './enums';
 import { BOUNDARY_CHECK_INTERVAL_MIN, SIGNAL_LOSS_MIN, SIGNAL_STALE_MIN } from './containment';
 import type { ScoreBand } from './types';
 
@@ -11,18 +11,27 @@ import type { ScoreBand } from './types';
  */
 
 export interface TrendMetricDef {
-  metric: 'resting_heart_rate' | 'water_intake_ml' | 'walk_minutes' | 'sleep_hours' | 'food_intake_g';
+  metric:
+    | 'resting_heart_rate'
+    | 'water_intake_ml'
+    | 'walk_minutes'
+    | 'sleep_hours'
+    | 'food_intake_g'
+    | 'litter_visits_per_day';
   label: string;
   unit: string;
+  /** Which species this metric is charted for (collar metrics are dog-only today). */
+  species: Species[];
 }
 
-/** The five chartable metrics, in display order. */
+/** The chartable metrics, in display order. Clients filter by pet species. */
 export const TREND_METRIC_DEFS: TrendMetricDef[] = [
-  { metric: 'resting_heart_rate', label: 'Resting heart rate', unit: 'bpm' },
-  { metric: 'water_intake_ml', label: 'Water intake', unit: 'ml/day' },
-  { metric: 'walk_minutes', label: 'Walk time', unit: 'min/day' },
-  { metric: 'sleep_hours', label: 'Sleep', unit: 'hrs/night' },
-  { metric: 'food_intake_g', label: 'Food intake', unit: 'g/day' },
+  { metric: 'resting_heart_rate', label: 'Resting heart rate', unit: 'bpm', species: ['dog'] },
+  { metric: 'water_intake_ml', label: 'Water intake', unit: 'ml/day', species: ['dog', 'cat', 'other'] },
+  { metric: 'walk_minutes', label: 'Walk time', unit: 'min/day', species: ['dog'] },
+  { metric: 'sleep_hours', label: 'Sleep', unit: 'hrs/night', species: ['dog'] },
+  { metric: 'food_intake_g', label: 'Food intake', unit: 'g/day', species: ['dog', 'cat', 'other'] },
+  { metric: 'litter_visits_per_day', label: 'Litter visits', unit: 'visits/day', species: ['cat'] },
 ];
 
 export interface TierExplainer {

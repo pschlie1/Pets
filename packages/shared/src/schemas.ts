@@ -54,3 +54,14 @@ export const orderSchema = z.object({
   device_id: z.string().min(1),
   sku: z.string().min(1),
 });
+
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be HH:MM');
+export const doorSettingsSchema = z
+  .object({
+    locked: z.boolean(),
+    curfew_start: hhmm.nullable(),
+    curfew_end: hhmm.nullable(),
+  })
+  .refine((s) => (s.curfew_start === null) === (s.curfew_end === null), {
+    message: 'curfew_start and curfew_end must be set together',
+  });

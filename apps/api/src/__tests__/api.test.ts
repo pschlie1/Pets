@@ -120,7 +120,7 @@ describe('pets and baselines', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('Meeko');
     expect(res.body.data.breed_name).toMatch(/Cavalier/);
-    expect(res.body.data.devices.length).toBe(3); // collar + shared feeder + shared fountain
+    expect(res.body.data.devices.length).toBe(4); // collar + shared feeder + fountain + smart door
   });
 
   it('computes established baselines from seeded telemetry', async () => {
@@ -216,7 +216,10 @@ describe('vet report', () => {
     expect(res.status).toBe(200);
     const report = res.body.data;
     expect(report.pet.name).toBe('Meeko');
-    expect(report.metrics.length).toBe(5);
+    // Reports include only metrics with data: a dog carries the five core
+    // metrics plus door crossings, and never a litter series.
+    expect(report.metrics.length).toBe(6);
+    expect(report.metrics.some((m: { metric: string }) => m.metric === 'litter_visits_per_day')).toBe(false);
     expect(report.summary.mode).toBe('template');
     expect(report.summary.text).toMatch(/14 days/);
     expect(report.summary.text).toMatch(/not a diagnosis/);

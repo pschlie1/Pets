@@ -269,3 +269,68 @@ export function chicagoSummerTemps(rng: Rng, days: number): { low: number; high:
     return { low: high - randInt(rng, 12, 18), high };
   });
 }
+
+/**
+ * Smart-door passages: out/in pairs during waking hours (07:00-21:00 UTC-ish),
+ * none during the seeded curfew. Dogs cross more than cats; every crossing is
+ * an out followed 10-45 min later by an in.
+ */
+export function doorPassageSeries(
+  rng: Rng,
+  opts: { deviceId: string; petId: string; days: number; endMs: number; tripsPerDay: [number, number] },
+): GeneratedEvent[] {
+  const events: GeneratedEvent[] = [];
+  const start = opts.endMs - opts.days * DAY;
+  for (let d = 0; d < opts.days; d++) {
+    const trips = randInt(rng, opts.tripsPerDay[0], opts.tripsPerDay[1]);
+    for (let i = 0; i < trips; i++) {
+      // Waking window 12:00-02:00 UTC ≈ 07:00-21:00 Chicago.
+      const outAt = start + d * DAY + 12 * HOUR + Math.floor(rng() * 14 * HOUR);
+      const inAt = outAt + randInt(rng, 10, 45) * 60_000;
+      if (inAt >= opts.endMs) continue;
+      for (const [t, direction] of [
+        [outAt, 'out'],
+        [inAt, 'in'],
+      ] as const) {
+        events.push({
+          device_id: opts.deviceId,
+          pet_id: opts.petId,
+          event_type: 'door_passage',
+          occurred_at: iso(t),
+          payload: { direction, method: 'collar_tag', flap_ms: randInt(rng, 700, 1400) },
+        });
+      }
+    }
+  }
+  return events;
+}
+
+/** Litter box visits: steady frequency + duration + weigh-in per visit. */
+export function litterVisitSeries(
+  rng: Rng,
+  opts: { deviceId: string; petId: string; days: number; endMs: number; visitsPerDay?: [number, number]; weightLbs?: number },
+): GeneratedEvent[] {
+  const events: GeneratedEvent[] = [];
+  const start = opts.endMs - opts.days * DAY;
+  const [lo, hi] = opts.visitsPerDay ?? [3, 4];
+  const weight = opts.weightLbs ?? 9.5;
+  for (let d = 0; d < opts.days; d++) {
+    const visits = randInt(rng, lo, hi);
+    for (let i = 0; i < visits; i++) {
+      const at = start + d * DAY + Math.floor(rng() * DAY);
+      if (at >= opts.endMs) continue;
+      events.push({
+        device_id: opts.deviceId,
+        pet_id: opts.petId,
+        event_type: 'litter_visit',
+        occurred_at: iso(at),
+        payload: {
+          duration_s: randInt(rng, 60, 180),
+          weight_lbs: Math.round((weight + gaussian(rng, 0, 0.15)) * 100) / 100,
+          clump_detected: true,
+        },
+      });
+    }
+  }
+  return events;
+}

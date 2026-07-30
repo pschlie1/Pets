@@ -4,7 +4,7 @@ export type Urgency = (typeof URGENCY_TIERS)[number];
 export const INSIGHT_TYPES = ['pet_health', 'pet_safety', 'equipment'] as const;
 export type InsightType = (typeof INSIGHT_TYPES)[number];
 
-export const DEVICE_TYPES = ['containment_collar', 'feeder', 'fountain'] as const;
+export const DEVICE_TYPES = ['containment_collar', 'feeder', 'fountain', 'smart_door', 'litter_box'] as const;
 export type DeviceType = (typeof DEVICE_TYPES)[number];
 
 export const SPECIES = ['dog', 'cat', 'other'] as const;
@@ -31,6 +31,10 @@ export const KNOWN_EVENT_TYPES = [
   'sleep_session',
   'drinking_session',
   'feeding_session',
+  'door_passage',
+  'door_status',
+  'intruder_detection',
+  'litter_visit',
   'device_health_ping',
 ] as const;
 export type KnownEventType = (typeof KNOWN_EVENT_TYPES)[number];
@@ -46,6 +50,9 @@ export const METRICS = [
   'collar_battery_pct',
   'boundary_safety',
   'containment_signal',
+  'door_crossings_per_day',
+  'door_night_crossings',
+  'litter_visits_per_day',
 ] as const;
 export type Metric = (typeof METRICS)[number];
 
