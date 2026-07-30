@@ -6,7 +6,7 @@ import { PetAvatar } from '../components/PetAvatar';
 import { ShareDialog } from '../components/ShareDialog';
 import { TrendCard } from '../components/TrendCard';
 import { UrgencyBadge } from '../components/UrgencyBadge';
-import { TREND_METRICS } from '../metrics';
+import { useMeta } from '../state/MetaContext';
 
 const STAGE_CHIP: Record<VetShareStage, { label: string; cls: string }> = {
   sent: { label: '📤 Sent', cls: 'bg-cream text-gray-500' },
@@ -55,6 +55,7 @@ async function copyText(text: string): Promise<boolean> {
 
 export function VetReport() {
   const { petId } = useParams<{ petId: string }>();
+  const { trend_metrics } = useMeta();
   const [report, setReport] = useState<VetReportData | null>(null);
   const [shares, setShares] = useState<VetShareWithStatus[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
@@ -185,7 +186,7 @@ export function VetReport() {
             14-day trends <span className="font-semibold normal-case">(yellow band = personal baseline range)</span>
           </h2>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            {TREND_METRICS.map((t) => (
+            {trend_metrics.map((t) => (
               <TrendCard key={t.metric} label={t.label} unit={t.unit} series={seriesFor(t.metric)} />
             ))}
           </div>

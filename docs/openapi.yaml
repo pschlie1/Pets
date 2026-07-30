@@ -43,6 +43,8 @@ security:
 tags:
   - name: Health
     description: Liveness.
+  - name: Client Contract
+    description: Public reference data any presentation layer needs — metric catalog, tier language, score bands, thresholds.
   - name: Auth
     description: Demo sign-in issuing signed tenant tokens. Production swaps the login route for a real IdP.
   - name: Identity & Household
@@ -82,6 +84,36 @@ paths:
           content:
             application/json:
               example: { data: { status: ok, tier: api, demo: true } }
+
+  /v1/meta:
+    get:
+      tags: [Client Contract]
+      summary: The client contract — everything a new presentation layer needs beyond tenant data
+      security: []
+      description: |
+        Metric catalog (what to chart, labels, units), urgency tiers in ranked
+        order with customer-language explainers, score bands with labels, and
+        containment thresholds. The bundled web app renders from this same
+        endpoint — nothing experience-defining is compiled into any client.
+        CORS is enabled API-wide (`ALLOWED_ORIGINS` env, default `*` in the
+        demo), so a client on any origin can consume the API directly.
+      responses:
+        '200':
+          description: The contract.
+          content:
+            application/json:
+              example:
+                data:
+                  urgency_tiers:
+                    - { key: info, rank: 0, explainer: { what_we_saw: '…', what_we_do: '…', what_you_do: '…' } }
+                  insight_types: [pet_health, pet_safety, equipment]
+                  trend_metrics:
+                    - { metric: resting_heart_rate, label: Resting heart rate, unit: bpm }
+                  score_bands:
+                    - { key: protected, min_score: 90, label: Protected }
+                  containment: { check_interval_min: 15, stale_after_min: 20, signal_loss_min: 45 }
+                  species: [dog, cat, other]
+                  share_methods: [portal, email, link]
 
   /v1/auth/login:
     post:

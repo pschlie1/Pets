@@ -4,22 +4,23 @@ import { api, type MetricSeries, type PetDetailData } from '../api/client';
 import { InsightCard } from '../components/InsightCard';
 import { PetAvatar } from '../components/PetAvatar';
 import { TrendCard } from '../components/TrendCard';
-import { TREND_METRICS } from '../metrics';
 import { useHousehold } from '../state/HouseholdContext';
+import { useMeta } from '../state/MetaContext';
 
 export function PetDetail() {
   const { petId } = useParams<{ petId: string }>();
   const { insights } = useHousehold();
+  const { trend_metrics } = useMeta();
   const [pet, setPet] = useState<PetDetailData | null>(null);
   const [series, setSeries] = useState<Record<string, MetricSeries>>({});
 
   useEffect(() => {
     if (!petId) return;
     void api.getPet(petId).then(setPet);
-    for (const t of TREND_METRICS) {
+    for (const t of trend_metrics) {
       void api.getPetMetrics(petId, t.metric).then((s) => setSeries((prev) => ({ ...prev, [t.metric]: s })));
     }
-  }, [petId, insights.length]);
+  }, [petId, insights.length, trend_metrics]);
 
   if (!pet) return <p className="p-8 text-gray-400">Fetching…</p>;
 
@@ -64,7 +65,7 @@ export function PetDetail() {
           14-day trends <span className="normal-case font-semibold">(yellow band = {pet.name}'s own normal range)</span>
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {TREND_METRICS.map((t) => (
+          {trend_metrics.map((t) => (
             <TrendCard key={t.metric} label={t.label} unit={t.unit} series={series[t.metric] ?? null} />
           ))}
         </div>

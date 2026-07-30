@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  SIGNAL_STALE_MIN,
   type ContainmentPetStatus,
   type DayHistoryResponse,
   type DealerStatus,
@@ -9,6 +8,7 @@ import {
 } from '@connected-care/shared';
 import { api } from '../api/client';
 import { useHousehold } from '../state/HouseholdContext';
+import { useMeta } from '../state/MetaContext';
 import { YardBase } from '../components/YardBase';
 import { PetMarkers, YardMap } from '../components/YardMap';
 import { YardHeatLayer } from '../components/YardHeatLayer';
@@ -36,8 +36,9 @@ function SignalBars({ strength }: { strength: number | null }) {
 }
 
 function ContainmentCard({ pet }: { pet: ContainmentPetStatus }) {
+  const { containment: thresholds } = useMeta();
   const badge = STATE_BADGE[pet.containment_state];
-  const stale = (pet.minutes_since_check_in ?? 0) >= SIGNAL_STALE_MIN;
+  const stale = (pet.minutes_since_check_in ?? 0) >= thresholds.stale_after_min;
   const batteryLow = (pet.battery_pct ?? 100) <= 20;
 
   return (

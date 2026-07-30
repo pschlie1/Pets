@@ -210,6 +210,11 @@ rewrites in `vercel.json`.
 
 ## Production notes (deliberate demo simplifications)
 
+- **CORS + the `/v1/meta` client contract** — the API serves everything a second
+  presentation layer needs (metric catalog, tier language, score bands, thresholds) and
+  allows any origin (`ALLOWED_ORIGINS` env; lock down in production). The bundled web app
+  consumes the same contract, so a new client gets the identical experience from data
+  alone — see "Building a presentation layer" in `docs/API.md`.
 - **Profile photos** are tenant data like everything else: stored on the pet record, flagged
   via `has_photo`, and served only by the authenticated pet-photo endpoint (token as query
   param for `<img>` tags — the same signed-URL pattern as the SSE stream).

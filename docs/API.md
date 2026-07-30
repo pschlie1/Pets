@@ -103,6 +103,39 @@ curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/scenarios/urge
 curl -X POST -H "$AUTH" localhost:3001/v1/demo/households/hh_2291/reset
 ```
 
+## Building a presentation layer
+
+The API is deliberately sufficient to build a whole new client — web, mobile, kiosk —
+with the same experience as the bundled demo app (which itself renders from these same
+endpoints). CORS is enabled API-wide (`ALLOWED_ORIGINS` env, default `*` in the demo), so
+any origin can consume it directly.
+
+**Bootstrap sequence:**
+
+1. `GET /v1/meta` *(public)* — the client contract: which metrics to chart (labels,
+   units), the urgency tiers in ranked order with customer-language explainers, score
+   bands, containment thresholds. Nothing experience-defining should be hardcoded in a
+   client.
+2. `GET /v1/auth/demo-identities` *(public, demo)* — pick an identity, or take email
+   input, then `POST /v1/auth/login` → signed token bound to one household.
+3. `GET /v1/auth/me` → the owner + `household_id`; every later call derives from it.
+
+**Screen → endpoint map** (how the demo app composes its pages):
+
+| Screen | Endpoints |
+|---|---|
+| Dashboard | `briefing` + `score` + `milestones` + `households/{id}` + `households/{id}/insights` |
+| Safety Center | `containment` (live) + `containment/heatmap` + `containment/history?date=` + `dealer` |
+| Health Center | `pets/{id}/metrics?metric=` × each `meta.trend_metrics` entry |
+| Insights | `households/{id}/insights` + tier metadata from `meta` |
+| Equipment | `devices/{id}/status` + `catalog/consumables` + `orders` |
+| Vet report | `pets/{id}/vet-report` + `…/share` + `…/shares` |
+| Live updates | SSE stream (below) |
+
+Two endpoints authenticate via a `?token=` query parameter because browsers can't attach
+headers there: the SSE stream and pet photos (`GET /v1/pets/{id}/photo`). Pet payloads
+carry `has_photo` so clients know when to request one.
+
 ## Realtime: the SSE stream
 
 New insights push over Server-Sent Events — `event: insight` frames with the full

@@ -12,6 +12,7 @@ import { demoRoutes } from './routes/demo';
 import { engagementRoutes } from './routes/engagement';
 import { householdRoutes } from './routes/households';
 import { insightRoutes } from './routes/insights';
+import { metaRoutes } from './routes/meta';
 import { orderRoutes } from './routes/orders';
 import { telemetryRoutes } from './routes/telemetry';
 import { vetReportRoutes } from './routes/vetReport';
@@ -28,12 +29,36 @@ export function buildApp(db: Db): { app: Express; hub: SseHub } {
 
   app.use(express.json({ limit: '1mb' }));
 
+  // CORS: lets a presentation layer on ANY origin consume this API (the
+  // bundled web app rides same-origin rewrites and never needs it). Bearer
+  // auth still gates every tenant-scoped route — CORS only lets browsers ask.
+  // PRODUCTION NOTE: set ALLOWED_ORIGINS to the real client origins.
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '*').split(',').map((o) => o.trim());
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.get('/v1/health', (_req, res) => {
     res.json({ data: { status: 'ok', tier: 'api', demo: true } });
   });
 
   // Interactive API docs — public, like the docs of any real API.
   app.use(docsRoutes());
+
+  // The client contract (public reference data for any presentation layer).
+  app.use('/v1', metaRoutes());
 
   // SSE stream: EventSource cannot set an Authorization header, so the token
   // travels as a query parameter (a signed-URL pattern). The stream is forced

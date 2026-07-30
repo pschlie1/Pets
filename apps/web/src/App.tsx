@@ -13,6 +13,7 @@ import { SafetyCenter } from './pages/SafetyCenter';
 import { VetReport } from './pages/VetReport';
 import { AuthProvider, useAuth } from './state/AuthContext';
 import { HouseholdProvider, useHousehold } from './state/HouseholdContext';
+import { MetaProvider } from './state/MetaContext';
 
 function Nav() {
   const { insights, containment } = useHousehold();
@@ -82,9 +83,11 @@ function SignedIn({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SignedInGate />
-    </AuthProvider>
+    <MetaProvider>
+      <AuthProvider>
+        <SignedInGate />
+      </AuthProvider>
+    </MetaProvider>
   );
 }
 

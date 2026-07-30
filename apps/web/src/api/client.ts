@@ -2,6 +2,7 @@ import type {
   AgentReply,
   ApiErrorBody,
   Briefing,
+  ClientMeta,
   Consumable,
   ContainmentStatus,
   DayHistoryResponse,
@@ -136,6 +137,7 @@ export const api = {
   getDealer: () => request<DealerStatus>(`/v1/households/${sessionHouseholdId}/dealer`),
   getOrders: () => request<Order[]>(`/v1/households/${sessionHouseholdId}/orders`),
   getConsumables: () => request<Consumable[]>('/v1/catalog/consumables'),
+  getMeta: () => request<ClientMeta>('/v1/meta'),
   placeOrder: (deviceId: string, sku: string) =>
     request<Order>('/v1/orders', { method: 'POST', body: JSON.stringify({ device_id: deviceId, sku }) }),
   getVetShares: (petId: string) => request<VetShareWithStatus[]>(`/v1/pets/${petId}/vet-report/shares`),

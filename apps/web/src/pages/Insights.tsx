@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { URGENCY_TIERS, urgencyRank, type Urgency } from '@connected-care/shared';
+import { urgencyRank, type Urgency } from '@connected-care/shared';
 import { useHousehold } from '../state/HouseholdContext';
+import { useMeta } from '../state/MetaContext';
 import { InsightCard } from '../components/InsightCard';
 import { TierExplainer } from '../components/TierExplainer';
 import { UrgencyBadge } from '../components/UrgencyBadge';
@@ -9,6 +10,7 @@ const PAGE_SIZE = 8;
 
 export function Insights() {
   const { household, insights } = useHousehold();
+  const { urgency_tiers } = useMeta();
   const [minTier, setMinTier] = useState<Urgency | null>(null);
   const [showResolved, setShowResolved] = useState(false);
   const [page, setPage] = useState(1);
@@ -38,7 +40,7 @@ export function Insights() {
         >
           All tiers
         </button>
-        {URGENCY_TIERS.map((tier) => (
+        {urgency_tiers.map(({ key: tier }) => (
           <button
             key={tier}
             onClick={() => {

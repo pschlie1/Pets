@@ -6,19 +6,20 @@ import { InsightCard } from '../components/InsightCard';
 import { PetAvatar } from '../components/PetAvatar';
 import { TrendCard } from '../components/TrendCard';
 import { UrgencyBadge } from '../components/UrgencyBadge';
-import { TREND_METRICS } from '../metrics';
 import { useHousehold } from '../state/HouseholdContext';
+import { useMeta } from '../state/MetaContext';
 
 function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | null }) {
   const [series, setSeries] = useState<Record<string, MetricSeries>>({});
   const { insights } = useHousehold();
+  const { trend_metrics } = useMeta();
 
   useEffect(() => {
     setSeries({});
-    for (const t of TREND_METRICS) {
+    for (const t of trend_metrics) {
       void api.getPetMetrics(pet.id, t.metric).then((s) => setSeries((prev) => ({ ...prev, [t.metric]: s })));
     }
-  }, [pet.id, insights.length]);
+  }, [pet.id, insights.length, trend_metrics]);
 
   return (
     <section className="rounded-2xl bg-card p-5 shadow-sm">
@@ -37,7 +38,7 @@ function PetHealthSection({ pet, worst }: { pet: PetSummary; worst: Urgency | nu
         </span>
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {TREND_METRICS.map((t) => (
+        {trend_metrics.map((t) => (
           <TrendCard key={t.metric} label={t.label} unit={t.unit} series={series[t.metric] ?? null} />
         ))}
       </div>

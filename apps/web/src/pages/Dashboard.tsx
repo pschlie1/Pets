@@ -13,6 +13,7 @@ import { ContainmentStrip } from '../components/ContainmentStrip';
 import { InsightCard } from '../components/InsightCard';
 import { PetCard } from '../components/PetCard';
 import { ScoreRing } from '../components/ScoreRing';
+import { useMeta } from '../state/MetaContext';
 
 const GREETING: Record<Briefing['greeting_period'], string> = {
   morning: '☀️ Good morning',
@@ -22,6 +23,7 @@ const GREETING: Record<Briefing['greeting_period'], string> = {
 
 /** The engagement hero: narrated briefing + Peace-of-Mind score + wins. */
 function Hero({ insightCount }: { insightCount: number }) {
+  const { score_bands } = useMeta();
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [score, setScore] = useState<PeaceOfMindScore | null>(null);
   const [wins, setWins] = useState<Milestone[]>([]);
@@ -57,7 +59,7 @@ function Hero({ insightCount }: { insightCount: number }) {
         <div className="flex items-center justify-center rounded-2xl bg-card p-4 shadow-sm sm:w-44 sm:flex-col">
           {score ? (
             <>
-              <ScoreRing score={score.score} band={score.band} />
+              <ScoreRing score={score.score} band={score.band} label={score_bands.find((b) => b.key === score.band)?.label ?? score.band} />
               <p className="ml-3 text-xs text-gray-500 sm:ml-0 sm:mt-1 sm:text-center">Peace-of-Mind score</p>
             </>
           ) : (

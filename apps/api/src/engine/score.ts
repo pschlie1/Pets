@@ -1,4 +1,4 @@
-import type { PeaceOfMindScore, ScoreBand, Urgency } from '@connected-care/shared';
+import { scoreBandFor, type PeaceOfMindScore, type Urgency } from '@connected-care/shared';
 import type { Db } from '../db/connection';
 import { getContainmentStatus } from './containment';
 
@@ -14,13 +14,6 @@ const INSIGHT_DEDUCTION: Partial<Record<Urgency, number>> = {
   attention: 8,
   monitor: 3,
 };
-
-function band(score: number): ScoreBand {
-  if (score >= 90) return 'protected';
-  if (score >= 70) return 'good';
-  if (score >= 40) return 'needs_attention';
-  return 'act_now';
-}
 
 export function getPeaceOfMindScore(db: Db, householdId: string, now: number = Date.now()): PeaceOfMindScore {
   const factors: { label: string; delta: number }[] = [];
@@ -65,5 +58,7 @@ export function getPeaceOfMindScore(db: Db, householdId: string, now: number = D
     factors.push({ label: '💚 Every device is online and every trend is on baseline', delta: 0 });
   }
 
-  return { household_id: householdId, score, band: band(score), factors };
+  // Band thresholds come from the shared SCORE_BANDS table — the same one
+  // /v1/meta serves — so the math and every client's labels can never diverge.
+  return { household_id: householdId, score, band: scoreBandFor(score).key, factors };
 }
